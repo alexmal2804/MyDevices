@@ -5,27 +5,49 @@ from firebase_admin import credentials, firestore
 from dotenv import load_dotenv
 
 def load_firebase_config() -> dict:
-    """Загрузка конфигурации Firebase из переменных окружения"""
-    load_dotenv(os.path.join('venv', '.venv'))
+    """Загрузка конфигурации Firebase из файла .venv"""
+    env_path = r'C:\\Users\\alexm.ALEXHOST\\PycharmProjects\\MyDevices\\venv\\.venv'
     
-    # Получаем данные сервисного аккаунта из переменных окружения
-    service_account = {
-        'type': 'service_account',
-        'project_id': os.getenv('FIREBASE_PROJECT_ID'),
-        'private_key_id': os.getenv('FIREBASE_PRIVATE_KEY_ID'),
-        'private_key': os.getenv('FIREBASE_PRIVATE_KEY').replace('\\n', '\n'),
-        'client_email': os.getenv('FIREBASE_CLIENT_EMAIL'),
-        'client_id': os.getenv('FIREBASE_CLIENT_ID'),
-        'auth_uri': 'https://accounts.google.com/o/oauth2/auth',
-        'token_uri': 'https://oauth2.googleapis.com/token',
-        'auth_provider_x509_cert_url': 'https://www.googleapis.com/oauth2/v1/certs',
-        'client_x509_cert_url': os.getenv('FIREBASE_CLIENT_CERT_URL'),
-        'universe_domain': 'googleapis.com'
-    }
+    # Проверяем существование файла
+    if not os.path.exists(env_path):
+        raise FileNotFoundError(f"Файл с переменными окружения не найден: {env_path}")
+    
+    # Читаем файл напрямую
+    with open(env_path, 'r', encoding='utf-8') as f:
+        file_content = f.read()
+        
+    # Пытаемся найти JSON-строку с учетными данными
+    import re
+    import json
+    
+    # Ищем JSON-объект в файле
+    json_match = re.search(r'\{.*\}', file_content, re.DOTALL)
+    if not json_match:
+        raise ValueError("Не удалось найти JSON с учетными данными в файле .venv")
+    
+    try:
+        # Парсим JSON
+        service_account = json.loads(json_match.group(0))
+        print("Успешно загружен JSON с учетными данными")
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Ошибка при разборе JSON: {e}")
+    
+    # Получаем URL базы данных из переменных окружения
+    db_url = None
+    env_vars = {}
+    for line in file_content.split('\n'):
+        line = line.strip()
+        if line.startswith('FIREBASE_DATABASE_URL'):
+            _, value = line.split('=', 1)
+            db_url = value.strip('"\'').strip()
+            break
+    
+    if not db_url:
+        raise ValueError("Не удалось найти FIREBASE_DATABASE_URL в файле .venv")
     
     return {
         'service_account': service_account,
-        'database_url': os.getenv('FIREBASE_DATABASE_URL')
+        'database_url': db_url
     }
 
 def initialize_firebase():
@@ -42,19 +64,36 @@ def upload_data(db, data: dict):
     """Загрузка данных в Firestore"""
     batch = db.batch()
     
-    # Загрузка справочников
-    print("Загрузка справочников...")
+    # Загрузка городов
+    print("Загрузка городов...")
     for city in data['cities']:
-        doc_ref = db.collection('cities').document()
-        batch.set(doc_ref, {'name': city})
+        doc_ref = db.collection('cities').document(city['cityID'])
+        batch.set(doc_ref, {'name': city['name']})
     
-    for division in data['divisions']:
-        doc_ref = db.collection('divisions').document()
+    # Собираем уникальные подразделения из данных сотрудников
+    divisions = set()
+    positions = set()
+    
+    # Сначала проходим по всем сотрудникам, чтобы собрать уникальные подразделения и должности
+    for emp in data['employees']:
+        divisions.add(emp['division'])
+        positions.add(emp['position'])
+    
+    # Загрузка подразделений
+    print("Загрузка подразделений...")
+    for i, division in enumerate(divisions, 1):
+        doc_ref = db.collection('divisions').document(f'div_{i:03d}')
         batch.set(doc_ref, {'name': division})
     
-    for position in data['positions']:
-        doc_ref = db.collection('positions').document()
+    # Загрузка должностей
+    print("Загрузка должностей...")
+    for i, position in enumerate(positions, 1):
+        doc_ref = db.collection('positions').document(f'pos_{i:03d}')
         batch.set(doc_ref, {'name': position})
+    
+    # Создаем словари для быстрого поиска ID по имени
+    division_name_to_id = {name: f'div_{i:03d}' for i, name in enumerate(divisions, 1)}
+    position_name_to_id = {name: f'pos_{i:03d}' for i, name in enumerate(positions, 1)}
     
     # Загрузка сотрудников
     print("Загрузка сотрудников...")
@@ -63,25 +102,32 @@ def upload_data(db, data: dict):
         batch.set(doc_ref, {
             'fio': emp['fio'],
             'tn': emp['tn'],
-            'position': emp['position'],
-            'division': emp['division'],
-            'location': emp['location']
+            'position': position_name_to_id[emp['position']],
+            'division': division_name_to_id[emp['division']],
+            'location': emp['location'],
+            'is_manager': emp.get('is_manager', False)
         })
     
     # Загрузка устройств
     print("Загрузка устройств...")
     for dev in data['devices']:
         doc_ref = db.collection('devices').document(dev['deviceID'])
-        batch.set(doc_ref, {
+        device_data = {
             'empID': dev['empID'],
-            'type': dev['type'],
+            'type': dev['nomenclature'],  # Используем nomenclature как type
             'model': dev['model'],
-            'serial': dev['serial'],
-            'purchase_date': dev['purchase_date'],
             'status': dev['status'],
-            'last_maintenance': dev['last_maintenance'],
-            'warranty_until': dev['warranty_until']
-        })
+            'dateReceipt': dev['dateReceipt'],
+            'usefulLife': dev['usefulLife']
+        }
+        
+        # Добавляем дополнительные поля, если они есть
+        if 'serial' in dev:
+            device_data['serial'] = dev['serial']
+        if 'ctc' in dev:  # Добавляем техническое состояние
+            device_data['ctc'] = dev['ctc']
+            
+        batch.set(doc_ref, device_data)
     
     # Выполняем пакетную запись
     print("Выполнение пакетной записи...")
