@@ -1,0 +1,272 @@
+{
+  "cities": [
+    "Москва",
+    "Санкт-Петербург",
+    "Новосибирск",
+    "Екатеринбург",
+    "Казань",
+    "Нижний Новгород",
+    "Челябинск",
+    "Самара",
+    "Омск",
+    "Ростов-на-Дону",
+    "Уфа",
+    "Красноярск",
+    "Воронеж",
+    "Пермь",
+    "Волгоград"
+  ],
+  "divisions": [
+    "Отдел розничных продаж",
+    "Кредитный отдел",
+    "Отдел вкладов",
+    "Отдел корпоративного обслуживания",
+    "Отдел инвестиций",
+    "Отдел кассовых операций",
+    "Отдел финансового анализа",
+    "Отдел управления рисками",
+    "Отдел пластиковых карт",
+    "Отдел дистанционного банкинга",
+    "Отдел юридической поддержки",
+    "Отдел внутреннего аудита",
+    "Отдел по работе с VIP-клиентами",
+    "Отдел маркетинга и рекламы",
+    "Отдел информационных технологий"
+  ],
+  "positions": [
+    "Менеджер по продажам",
+    "Кредитный специалист",
+    "Старший кассир",
+    "Аналитик рисков",
+    "Операционист",
+    "Специалист по работе с клиентами",
+    "Бухгалтер",
+    "Финансовый консультант",
+    "Аудитор",
+    "Специалист по валютным операциям",
+    "Менеджер по кредитованию",
+    "Специалист по инвестициям",
+    "Контролер банковских операций",
+    "Специалист по антифроду",
+    "Руководитель отделения"
+  ],
+  "employees": [
+    {
+      "fio": "Смирнова Анна Владимировна",
+      "tn": "23456789",
+      "position": "Кредитный специалист",
+      "division": "Кредитный отдел",
+      "location": "Санкт-Петербург",
+      "empID": "emp_001"
+    },
+    {
+      "fio": "Петрова Анна Сергеевна",
+      "tn": "23456789",
+      "position": "Кредитный специалист",
+      "division": "Кредитный отдел",
+      "location": "Санкт-Петербург",
+      "empID": "emp_002"
+    },
+    {
+      "fio": "Смирнова Анна Владимировна",
+      "tn": "87654321",
+      "position": "Кредитный специалист",
+      "division": "Кредитный отдел",
+      "location": "Санкт-Петербург",
+      "empID": "emp_003"
+    },
+    {
+      "fio": "Смирнова Анна Владимировна",
+      "tn": "87654321",
+      "position": "Кредитный специалист",
+      "division": "Кредитный отдел",
+      "location": "Санкт-Петербург",
+      "empID": "emp_004"
+    },
+    {
+      "fio": "Петров Алексей Сергеевич",
+      "tn": "87654321",
+      "position": "Кредитный специалист",
+      "division": "Кредитный отдел",
+      "location": "Санкт-Петербург",
+      "empID": "emp_005"
+    },
+    {
+      "fio": "Смирнова Анна Владимировна",
+      "tn": "87654321",
+      "position": "Кредитный специалист",
+      "division": "Кредитный отдел",
+      "location": "Санкт-Петербург",
+      "empID": "emp_006"
+    },
+    {
+      "fio": "Смирнова Анна Владимировна",
+      "tn": "87654321",
+      "position": "Кредитный специалист",
+      "division": "Кредитный отдел",
+      "location": "Санкт-Петербург",
+      "empID": "emp_007"
+    },
+    {
+      "fio": "Смирнова Анна Владимировна",
+      "tn": "87654321",
+      "position": "Кредитный специалист",
+      "division": "Кредитный отдел",
+      "location": "Санкт-Петербург",
+      "empID": "emp_008"
+    },
+    {
+      "fio": "Смирнова Анна Сергеевна",
+      "tn": "56783214",
+      "position": "Кредитный специалист",
+      "division": "Кредитный отдел",
+      "location": "Санкт-Петербург",
+      "empID": "emp_009"
+    },
+    {
+      "fio": "Смирнова Анна Владимировна",
+      "tn": "87654321",
+      "position": "Кредитный специалист",
+      "division": "Кредитный отдел",
+      "location": "Санкт-Петербург",
+      "empID": "emp_010"
+    }
+  ],
+  "devices": [
+    {
+      "type": "laptop",
+      "model": "Lenovo ThinkPad X1 Carbon",
+      "serial": "X1C2D3E4F5",
+      "status": "active",
+      "assigned_to": "emp_001",
+      "last_check": "2023-11-10",
+      "deviceID": "dev_001_01"
+    },
+    {
+      "type": "laptop",
+      "model": "Lenovo ThinkPad X1 Carbon",
+      "serial": "L3N0V0T1C2",
+      "status": "active",
+      "assigned_to": "emp_001",
+      "last_check": "2023-11-01",
+      "deviceID": "dev_001_02"
+    },
+    {
+      "type": "laptop",
+      "model": "Lenovo ThinkPad X1 Carbon",
+      "serial": "X9Y8Z7W6V5",
+      "status": "active",
+      "assigned_to": "emp_002",
+      "last_check": "2023-10-20",
+      "deviceID": "dev_002_01"
+    },
+    {
+      "type": "laptop",
+      "model": "Lenovo ThinkPad X1 Carbon",
+      "serial": "X9Y8Z7W6V5",
+      "status": "active",
+      "assigned_to": "emp_002",
+      "last_check": "2023-09-20",
+      "deviceID": "dev_002_02"
+    },
+    {
+      "type": "laptop",
+      "model": "Lenovo ThinkPad X1 Carbon",
+      "serial": "X1C2D3E4F5",
+      "status": "active",
+      "assigned_to": "emp_003",
+      "last_check": "2023-10-20",
+      "deviceID": "dev_003_01"
+    },
+    {
+      "type": "laptop",
+      "model": "Lenovo ThinkPad X1 Carbon",
+      "serial": "X1C2D3E4F5",
+      "status": "active",
+      "assigned_to": "emp_003",
+      "last_check": "2023-10-20",
+      "deviceID": "dev_003_02"
+    },
+    {
+      "type": "laptop",
+      "model": "Lenovo ThinkPad X1 Carbon",
+      "serial": "L3N4O5V6O7",
+      "status": "active",
+      "assigned_to": "emp_004",
+      "last_check": "2023-10-20",
+      "deviceID": "dev_004_01"
+    },
+    {
+      "deviceID": "dev_004_02",
+      "type": "laptop",
+      "model": "Неизвестная модель",
+      "serial": "KBTD8L0EIY",
+      "status": "active",
+      "assigned_to": "emp_004",
+      "last_check": "2023-01-23"
+    },
+    {
+      "type": "laptop",
+      "model": "Lenovo ThinkPad X1 Carbon",
+      "serial": "X1C2D3E4F5",
+      "status": "active",
+      "assigned_to": "emp_005",
+      "last_check": "2023-10-20",
+      "deviceID": "dev_005_01"
+    },
+    {
+      "type": "laptop",
+      "model": "Lenovo ThinkPad X1 Carbon",
+      "serial": "X9Y8Z7W6V5",
+      "status": "active",
+      "assigned_to": "emp_006",
+      "last_check": "2023-09-20",
+      "deviceID": "dev_006_01"
+    },
+    {
+      "type": "laptop",
+      "model": "Lenovo ThinkPad X1 Carbon",
+      "serial": "X9Y8Z7W6V5",
+      "status": "active",
+      "assigned_to": "emp_006",
+      "last_check": "2023-09-20",
+      "deviceID": "dev_006_02"
+    },
+    {
+      "type": "laptop",
+      "model": "Lenovo ThinkPad X1 Carbon",
+      "serial": "X9Y8Z7W6V5",
+      "status": "active",
+      "assigned_to": "emp_007",
+      "last_check": "2023-11-01",
+      "deviceID": "dev_007_01"
+    },
+    {
+      "type": "laptop",
+      "model": "Lenovo ThinkPad X1 Carbon",
+      "serial": "X1C2D3E4F5",
+      "status": "active",
+      "assigned_to": "emp_008",
+      "last_check": "2023-10-20",
+      "deviceID": "dev_008_01"
+    },
+    {
+      "type": "laptop",
+      "model": "Lenovo ThinkPad X1 Carbon",
+      "serial": "X7Y8Z9A1B2",
+      "status": "active",
+      "assigned_to": "emp_009",
+      "last_check": "2023-09-20",
+      "deviceID": "dev_009_01"
+    },
+    {
+      "type": "laptop",
+      "model": "Lenovo ThinkPad X1 Carbon",
+      "serial": "X1C2D3E4F5",
+      "status": "active",
+      "assigned_to": "emp_010",
+      "last_check": "2023-09-20",
+      "deviceID": "dev_010_01"
+    }
+  ]
+}
