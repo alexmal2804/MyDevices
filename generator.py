@@ -12,8 +12,17 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 from dateutil.relativedelta import relativedelta
 
-# Загрузка переменных окружения
-load_dotenv()
+def find_config_file(filename: str) -> str:
+    """Поиск файла конфигурации в venv/.venv"""
+    for path in ['.venv', 'venv']:
+        filepath = os.path.join(path, filename)
+        if os.path.exists(filepath):
+            return filepath
+    raise FileNotFoundError(f"Файл {filename} не найден в venv/ или .venv/")
+
+# Загрузка переменных окружения из venv/.venv
+env_path = find_config_file('.env')
+load_dotenv(env_path)
 
 # Инициализация Faker с русской локалью
 fake = Faker('ru_RU')
@@ -21,26 +30,115 @@ fake.add_provider(person)
 fake.add_provider(job)
 fake.add_provider(address)
 
-# Конфигурация OpenAI
+# Настройка OpenAI
 client = OpenAI(
     api_key=os.getenv('aiTonnelKey'),
-    base_url="https://aitunnel.ru/v1"
+    base_url="https://api.aitunnel.ru/v1"
 )
 
 # Инициализация Firebase
-cred = credentials.Certificate('firebase-credentials.json')
+firebase_creds = find_config_file('firebase-credentials.json')
+cred = credentials.Certificate(firebase_creds)
 firebase_admin.initialize_app(cred, {
     'databaseURL': os.getenv('FIREBASE_DATABASE_URL')
 })
+
+# Получаем экземпляр Firestore
 db = firestore.client()
 
-# Константы
-NUM_EMPLOYEES = 1000
-NUM_DEVICES = 7000
+# Конфигурация данных
+EMPLOYEES_COUNT = 1000
+DEVICES_COUNT = 7000
 
 # Списки для генерации данных
 CITIES = [
     'Москва', 'Санкт-Петербург', 'Новосибирск', 'Екатеринбург', 'Казань',
+    'Нижний Новгород', 'Челябинск', 'Самара', 'Омск', 'Ростов-на-Дону'
+]
+
+DIVISIONS = [
+    'Отдел разработки', 'Отдел тестирования', 'Отдел аналитики',
+    'Отдел маркетинга', 'Отдел продаж', 'Отдел поддержки',
+    'Бухгалтерия', 'Отдел кадров', 'Юридический отдел', 'Отдел ИТ'
+]
+
+POSITIONS = [
+    'Разработчик', 'Тестировщик', 'Аналитик', 'Маркетолог',
+    'Менеджер по продажам', 'Техподдержка', 'Бухгалтер', 'HR-менеджер',
+    'Юрист', 'Системный администратор', 'Тимлид', 'Продукт-менеджер',
+    'Дизайнер', 'DevOps-инженер', 'Технический писатель'
+]
+
+DEVICE_TYPES = [
+    'Ноутбук', 'Монитор', 'Системный блок', 'Клавиатура', 'Мышь',
+    'Телефон', 'Планшет', 'Принтер', 'Сканер', 'МФУ'
+]
+
+# Функции для генерации данных
+def generate_employee(emp_id: str) -> Dict[str, Any]:
+    """Генерация данных сотрудника"""
+    return {
+        'empID': emp_id,
+        'fio': fake.name(),
+        'tn': str(random.randint(10000000, 99999999)),
+        'position': random.choice(POSITIONS),
+        'division': random.choice(DIVISIONS),
+        'location': random.choice(CITIES)
+    }
+
+def generate_device(device_id: str, emp_id: str) -> Dict[str, Any]:
+    """Генерация данных устройства"""
+    device_type = random.choice(DEVICE_TYPES)
+    receipt_date = fake.date_between(start_date='-5y', end_date='today')
+    
+    return {
+        'deviceID': device_id,
+        'empID': emp_id,
+        'nomenclature': device_type,
+        'model': f"{device_type} {fake.bothify(text='??-####', letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ')}",
+        'dateReceipt': receipt_date.strftime('%Y-%m-%d'),
+        'usefulLife': 3 if device_type in ['Ноутбук', 'Планшет', 'Телефон'] else 5,
+        'status': random.choices(
+            ['Исправен', 'Неисправен', 'В ремонте', 'Утерян'],
+            weights=[0.85, 0.1, 0.03, 0.02],
+            k=1
+        )[0],
+        'ctc': random.randint(30, 100)  # КТС от 30 до 100%
+    }
+
+def upload_to_firestore(collection: str, data: Dict[str, Any]):
+    """Загрузка данных в Firestore"""
+    doc_id = data.get('empID') or data.get('deviceID')
+    if not doc_id:
+        raise ValueError("Документ должен содержать empID или deviceID")
+    
+    doc_ref = db.collection(collection).document(doc_id)
+    doc_ref.set(data)
+
+# Основная функция
+def main():
+    print("Начало генерации данных...")
+    
+    # Генерация сотрудников
+    print(f"Генерация {EMPLOYEES_COUNT} сотрудников...")
+    employees = []
+    for i in range(EMPLOYEES_COUNT):
+        emp_id = f"emp_{i:04d}"
+        employee = generate_employee(emp_id)
+        employees.append(employee)
+        upload_to_firestore('employees', employee)
+        
+        if (i + 1) % 100 == 0:
+            print(f"Обработано {i + 1} сотрудников")
+    
+    # Генерация устройств
+    print(f"\nГенерация {DEVICES_COUNT} устройств...")
+    for i in range(DEVICES_COUNT):
+        emp = random.choice(employees)
+        device_id = f"dev_{i:06d}"
+        device = generate_device(device_id, emp['empID'])
+        upload_to_firestore('devices', device)
+        
     'Нижний Новгород', 'Челябинск', 'Самара', 'Омск', 'Ростов-на-Дону',
     'Уфа', 'Красноярск', 'Воронеж', 'Пермь', 'Волгоград', 'Краснодар',
     'Саратов', 'Тюмень', 'Тольятти', 'Ижевск'
@@ -92,14 +190,14 @@ def generate_employees() -> List[Dict[str, Any]]:
     
     # Разделяем города между сотрудниками
     city_assignments = {}
-    cities_per_employee = len(CITIES) / NUM_EMPLOYEES
+    cities_per_employee = len(CITIES) / EMPLOYEES_COUNT
     
     for i, city in enumerate(CITIES):
         start_idx = int(i * cities_per_employee)
         end_idx = int((i + 1) * cities_per_employee)
-        city_assignments[city] = list(range(start_idx, min(end_idx, NUM_EMPLOYEES)))
+        city_assignments[city] = list(range(start_idx, min(end_idx, EMPLOYEES_COUNT)))
     
-    for i in range(NUM_EMPLOYEES):
+    for i in range(EMPLOYEES_COUNT):
         # Генерация уникального табельного номера
         while True:
             tn = f"{random.randint(10000000, 99999999)}"
@@ -156,7 +254,7 @@ def generate_devices(employees: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             employee_devices[emp_id].extend(['Ноутбук', 'Смартфон', 'Планшет'])
     
     # Добавляем оставшиеся устройства до нужного количества
-    while len(devices) < NUM_DEVICES:
+    while len(devices) < DEVICES_COUNT:
         emp = random.choice(employees)
         device_type = random.choice(DEVICE_TYPES)
         
@@ -167,7 +265,7 @@ def generate_devices(employees: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         devices.append(create_device(emp['empID'], device_type))
         employee_devices[emp['empID']].append(device_type)
     
-    return devices[:NUM_DEVICES]  # На всякий случай обрезаем до нужного количества
+    return devices[:DEVICES_COUNT]  # На всякий случай обрезаем до нужного количества
 
 def create_device(emp_id: str, device_type: str) -> Dict[str, Any]:
     """Создание устройства заданного типа"""
