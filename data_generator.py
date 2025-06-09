@@ -257,32 +257,39 @@ async def generate_reference_data() -> Tuple[List[str], List[Dict], List[Dict]]:
 
 async def generate_employee(emp_id: int, cities: List[str], positions: List[Dict]) -> Dict[str, Any]:
     """Генерация данных сотрудника"""
-    position = random.choice(positions)
-    is_manager = position.get('is_manager', False)
-    
     # Генерация ФИО
-    first_names = ["Александр", "Дмитрий", "Максим", "Сергей", "Андрей", "Алексей", "Артём", "Илья", "Кирилл", "Михаил",
-                  "Анна", "Елена", "Ирина", "Наталья", "Мария", "Светлана", "Ольга", "Анастасия", "Екатерина", "Татьяна"]
-    last_names = ["Иванов", "Петров", "Сидоров", "Смирнов", "Кузнецов", "Попов", "Васильев", "Павлов", "Семёнов", "Голубев"]
+    last_names = ['Иванов', 'Петров', 'Сидоров', 'Смирнов', 'Кузнецов', 'Попов', 'Васильев', 'Павлов']
+    first_names_male = ['Александр', 'Дмитрий', 'Михаил', 'Андрей', 'Сергей', 'Алексей', 'Артём', 'Иван']
+    first_names_female = ['Елена', 'Мария', 'Анна', 'Ольга', 'Наталья', 'Ирина', 'Татьяна', 'Екатерина']
     
+    # Определяем пол по случайному выбору
     gender = random.choice(['male', 'female'])
+    
     if gender == 'male':
-        first_name = random.choice([n for n in first_names if not n.endswith(('а', 'я'))])
+        first_name = random.choice(first_names_male)
         middle_name = random.choice(['Александрович', 'Дмитриевич', 'Сергеевич', 'Андреевич', 'Алексеевич'])
     else:
-        first_name = random.choice([n for n in first_names if n.endswith(('а', 'я'))])
+        first_name = random.choice(first_names_female)
         middle_name = random.choice(['Александровна', 'Дмитриевна', 'Сергеевна', 'Андреевна', 'Алексеевна'])
     
     last_name = random.choice(last_names) + ('а' if gender == 'female' else '')
     fio = f"{last_name} {first_name} {middle_name}"
+    
+    # Выбираем случайную должность
+    position = random.choice(positions)
+    is_manager = position.get('is_manager', False)
+    
+    # Выбираем город и генерируем полный адрес
+    city = random.choice(cities)
+    address = generate_address(city)
     
     return {
         'empID': f"emp_{emp_id:04d}",
         'fio': fio,
         'tn': f"{random.randint(10000000, 99999999)}",
         'position': position['name'],
-        'division': '',  # Заполнится при распределении по подразделениям
-        'location': random.choice(cities),
+        'division': 'Не распределено',  # Временное значение, будет перезаписано
+        'location': address,  # Полный адрес
         'is_manager': is_manager
     }
 
@@ -312,6 +319,13 @@ def generate_device(device_id: int, emp_id: str, is_manager: bool) -> Dict[str, 
     ctc_base = max(0, 100 - years_passed * 20)  # Базовый КТС уменьшается на 20% в год
     ctc = random.randint(max(0, ctc_base - 20), min(100, ctc_base + 20))  # Добавляем случайность ±20%
     
+    # Генерируем статус устройства согласно заданным вероятностям
+    status = random.choices(
+        ["исправен", "неисправен", "поиск", "утерян"],
+        weights=[85, 10, 3, 2],  # Проценты: 85%, 10%, 3%, 2%
+        k=1
+    )[0]
+    
     return {
         'deviceID': f"dev_{device_id:06d}",
         'empID': emp_id,
@@ -319,30 +333,46 @@ def generate_device(device_id: int, emp_id: str, is_manager: bool) -> Dict[str, 
         'model': random.choice(config['models']),
         'dateReceipt': receipt_date,
         'usefulLife': config['useful_life'],
-        'status': weighted_choice(DEVICE_STATUSES),
+        'status': status,  # Используем сгенерированный статус
         'ctc': ctc
     }
 
 def assign_divisions_to_employees(employees: List[Dict], divisions: List[Dict]) -> None:
     """Распределение сотрудников по подразделениям"""
+    # Собираем все доступные названия подразделений
+    division_names = [d.get('name', 'Основное подразделение') for d in divisions]
+    if not division_names:  # Если подразделений нет, используем заглушку
+        division_names = ['Основное подразделение']
+    
     # Сортируем подразделения по уровню (от высшего к низшему)
-    sorted_divisions = sorted([d for d in divisions if d['parent'] is not None], 
-                             key=lambda x: x['level'], reverse=True)
+    sorted_divisions = sorted([d for d in divisions if d.get('parent') is not None], 
+                             key=lambda x: x.get('level', 0), reverse=True)
     
     # Распределяем руководителей по подразделениям
-    managers = [e for e in employees if e['is_manager']]
-    non_managers = [e for e in employees if not e['is_manager']]
+    managers = [e for e in employees if e.get('is_manager', False)]
+    non_managers = [e for e in employees if not e.get('is_manager', False)]
     
     # Распределяем руководителей по управлениям и отделам
     for i, manager in enumerate(managers):
         if i < len(sorted_divisions):
-            manager['division'] = sorted_divisions[i]['name']
+            manager['division'] = sorted_divisions[i].get('name', 'Основное подразделение')
+        else:
+            manager['division'] = random.choice(division_names)
+    
+    # Распределяем обычных сотрудников по подразделениям
+    for emp in non_managers:
+        emp['division'] = random.choice(division_names)
+    
+    # Дополнительная проверка на случай, если кто-то остался без подразделения
+    for emp in employees:
+        if not emp.get('division'):
+            emp['division'] = random.choice(division_names)
     
     # Распределяем остальных сотрудников
     for emp in non_managers:
         # Выбираем случайное подразделение
         div = random.choice(divisions)
-        emp['division'] = div['name']
+        emp['division'] = div.get('name', 'Основное подразделение')
 
 def generate_divisions_hierarchy(divisions: List[Dict]) -> List[Dict]:
     """Генерация иерархии подразделений"""
@@ -482,11 +512,79 @@ async def main():
 
 # Веса для статусов устройств (чем больше вес, тем выше вероятность)
 DEVICE_STATUSES = [
-    ("В эксплуатации", 85),    # 85% вероятность
-    ("На ремонте", 7),        # 7% вероятность
-    ("Списано", 5),           # 5% вероятность
-    ("Резерв", 3)              # 3% вероятность
+    ("исправен", 85),     # 85% вероятность
+    ("неисправен", 10),   # 10% вероятность
+    ("поиск", 3),         # 3% вероятность
+    ("утерян", 2)         # 2% вероятность
 ]
+
+# Списки для генерации адресов
+STREET_TYPES = ['ул.', 'пр-т', 'шоссе', 'наб.', 'пер.', 'б-р']
+STREET_NAMES = [
+    'Ленина', 'Советская', 'Центральная', 'Молодежная', 'Школьная',
+    'Садовая', 'Лесная', 'Набережная', 'Солнечная', 'Новая',
+    'Гагарина', 'Мира', 'Кирова', 'Пушкина', 'Лермонтова'
+]
+CITY_ADDRESSES = {
+    'Москва': {
+        'streets': ['Тверская', 'Арбат', 'Новый Арбат', 'Кутузовский пр-т', 'Ленинский пр-т'],
+        'districts': ['Центральный', 'Северный', 'Южный', 'Западный', 'Восточный']
+    },
+    'Санкт-Петербург': {
+        'streets': ['Невский пр-т', 'Литейный пр-т', 'Московский пр-т', 'Каменноостровский пр-т'],
+        'districts': ['Центральный', 'Петроградский', 'Василеостровский', 'Выборгский']
+    },
+    'Новосибирск': {
+        'streets': ['Красный пр-т', 'Гоголя', 'Дуси Ковальчук', 'Кирова'],
+        'districts': ['Центральный', 'Железнодорожный', 'Заельцовский']
+    },
+    'Екатеринбург': {
+        'streets': ['Ленина', 'Малышева', 'Куйбышева', '8 Марта'],
+        'districts': ['Верх-Исетский', 'Кировский', 'Октябрьский']
+    },
+    'Казань': {
+        'streets': ['Кремлевская', 'Пушкина', 'Толстого', 'Московская'],
+        'districts': ['Вахитовский', 'Советский', 'Приволжский']
+    },
+    'Нижний Новгород': {
+        'streets': ['Большая Покровская', 'Рождественская', 'Максима Горького'],
+        'districts': ['Нижегородский', 'Советский', 'Автозаводский']
+    },
+    'Челябинск': {
+        'streets': ['Кирова', 'Цвиллинга', 'Молодогвардейцев'],
+        'districts': ['Центральный', 'Советский', 'Ленинский']
+    },
+    'Омск': {
+        'streets': ['Ленина', 'Маршала Жукова', 'Масленникова'],
+        'districts': ['Центральный', 'Советский', 'Кировский']
+    },
+    'Самара': {
+        'streets': ['Куйбышева', 'Ленинградская', 'Галактионовская'],
+        'districts': ['Самарский', 'Ленинский', 'Октябрьский']
+    },
+    'Ростов-на-Дону': {
+        'streets': ['Большая Садовая', 'Красноармейская', 'Пушкинская'],
+        'districts': ['Ворошиловский', 'Советский', 'Кировский']
+    }
+}
+
+def generate_address(city: str) -> str:
+    """Генерирует случайный адрес в указанном городе"""
+    if city not in CITY_ADDRESSES:
+        # Если города нет в списке, используем общий формат
+        street_type = random.choice(STREET_TYPES)
+        street_name = random.choice(STREET_NAMES)
+        house = random.randint(1, 200)
+        building = random.choice(['', f', к{random.randint(1, 5)}', f', стр. {random.randint(1, 10)}'])
+        return f"{city}, {street_type} {street_name}, д. {house}{building}"
+    
+    # Используем специфичные для города данные
+    city_data = CITY_ADDRESSES[city]
+    street = random.choice(city_data['streets'])
+    district = random.choice(city_data['districts'])
+    house = random.randint(1, 200)
+    building = random.choice(['', f', к{random.randint(1, 5)}', f', стр. {random.randint(1, 10)}'])
+    return f"{city}, {district} р-н, {street}, д. {house}{building}"
 
 if __name__ == "__main__":
     import time
