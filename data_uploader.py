@@ -60,87 +60,144 @@ def initialize_firebase():
         })
     return firestore.client()
 
+def clear_collection(db, collection_name: str, batch_size: int = 100):
+    """Очистка коллекции в Firestore"""
+    print(f"Очистка коллекции {collection_name}...")
+    try:
+        # Получаем все документы партиями
+        collection_ref = db.collection(collection_name)
+        docs = collection_ref.limit(batch_size).stream()
+        
+        deleted = 0
+        batch = db.batch()
+        
+        for doc in docs:
+            batch.delete(doc.reference)
+            deleted += 1
+            
+            if deleted % 400 == 0:  # Ограничение на размер батча
+                batch.commit()
+                batch = db.batch()
+        
+        if deleted % 400 != 0:
+            batch.commit()
+            
+        print(f"Удалено {deleted} документов из коллекции {collection_name}")
+        return deleted
+    except Exception as e:
+        print(f"Ошибка при очистке коллекции {collection_name}: {e}")
+        return 0
+
 def upload_data(db, data: dict):
     """Загрузка данных в Firestore"""
-    batch = db.batch()
+    # Очищаем существующие коллекции
+    collections_to_clear = ['employees', 'devices']
+    for collection in collections_to_clear:
+        clear_collection(db, collection)
     
-    # Загрузка городов
-    print("Загрузка городов...")
-    for city in data['cities']:
-        doc_ref = db.collection('cities').document(city['cityID'])
-        batch.set(doc_ref, {'name': city['name']})
-    
-    # Собираем уникальные подразделения из данных сотрудников
+    # Собираем уникальные города, подразделения и должности из данных сотрудников
+    cities = set()
     divisions = set()
     positions = set()
     
-    # Сначала проходим по всем сотрудникам, чтобы собрать уникальные подразделения и должности
     for emp in data['employees']:
+        cities.add(emp['location'])
         divisions.add(emp['division'])
         positions.add(emp['position'])
     
-    # Загрузка подразделений
+    # Создаем словари для хранения соответствий
+    city_mapping = {city: f'city_{i+1:03d}' for i, city in enumerate(cities)}
+    division_mapping = {div: f'div_{i+1:03d}' for i, div in enumerate(divisions)}
+    position_mapping = {pos: f'pos_{i+1:03d}' for i, pos in enumerate(positions)}
+    
+    # Создаем коллекцию городов
+    print("Загрузка городов...")
+    city_batch = db.batch()
+    for city, city_id in city_mapping.items():
+        doc_ref = db.collection('cities').document(city_id)
+        city_batch.set(doc_ref, {'name': city})
+    city_batch.commit()
+    
+    # Создаем коллекцию подразделений
     print("Загрузка подразделений...")
-    for i, division in enumerate(divisions, 1):
-        doc_ref = db.collection('divisions').document(f'div_{i:03d}')
-        batch.set(doc_ref, {'name': division})
+    div_batch = db.batch()
+    for div, div_id in division_mapping.items():
+        doc_ref = db.collection('divisions').document(div_id)
+        div_batch.set(doc_ref, {'name': div})
+    div_batch.commit()
     
-    # Загрузка должностей
+    # Создаем коллекцию должностей
     print("Загрузка должностей...")
-    for i, position in enumerate(positions, 1):
-        doc_ref = db.collection('positions').document(f'pos_{i:03d}')
-        batch.set(doc_ref, {'name': position})
-    
-    # Создаем словари для быстрого поиска ID по имени
-    division_name_to_id = {name: f'div_{i:03d}' for i, name in enumerate(divisions, 1)}
-    position_name_to_id = {name: f'pos_{i:03d}' for i, name in enumerate(positions, 1)}
+    pos_batch = db.batch()
+    for pos, pos_id in position_mapping.items():
+        doc_ref = db.collection('positions').document(pos_id)
+        pos_batch.set(doc_ref, {'name': pos})
+    pos_batch.commit()
     
     # Загрузка сотрудников
-    print("Загрузка сотрудников...")
-    for emp in data['employees']:
+    print(f"Загрузка {len(data['employees'])} сотрудников...")
+    emp_batch = db.batch()
+    for i, emp in enumerate(data['employees'], 1):
         doc_ref = db.collection('employees').document(emp['empID'])
-        batch.set(doc_ref, {
+        emp_batch.set(doc_ref, {
             'fio': emp['fio'],
             'tn': emp['tn'],
-            'position': position_name_to_id[emp['position']],
-            'division': division_name_to_id[emp['division']],
-            'location': emp['location'],
+            'position': position_mapping[emp['position']],
+            'division': division_mapping[emp['division']],
+            'location': city_mapping[emp['location']],
             'is_manager': emp.get('is_manager', False)
         })
+        
+        if i % 400 == 0:  # Фиксируем каждые 400 записей
+            emp_batch.commit()
+            emp_batch = db.batch()
+            print(f"Загружено {i} сотрудников...")
+    
+    if emp_batch._write_pbs:  # Если есть незафиксированные изменения
+        emp_batch.commit()
     
     # Загрузка устройств
-    print("Загрузка устройств...")
-    for dev in data['devices']:
-        doc_ref = db.collection('devices').document(dev['deviceID'])
+    print(f"Загрузка {len(data['devices'])} устройств...")
+    dev_batch = db.batch()
+    for i, dev in enumerate(data['devices'], 1):
+        doc_ref = db.collection('devices').document(dev['ID'])
         device_data = {
             'empID': dev['empID'],
-            'type': dev['nomenclature'],  # Используем nomenclature как type
+            'nomenclature': dev['nomenclature'],
             'model': dev['model'],
             'status': dev['status'],
             'dateReceipt': dev['dateReceipt'],
-            'usefulLife': dev['usefulLife']
+            'usefulLife': dev['usefulLife'],
+            'ctc': dev.get('ctc', 1.0)  # Добавляем техническое состояние
         }
         
-        # Добавляем дополнительные поля, если они есть
         if 'serial' in dev:
             device_data['serial'] = dev['serial']
-        if 'ctc' in dev:  # Добавляем техническое состояние
-            device_data['ctc'] = dev['ctc']
             
-        batch.set(doc_ref, device_data)
+        dev_batch.set(doc_ref, device_data)
+        
+        if i % 400 == 0:  # Фиксируем каждые 400 записей
+            dev_batch.commit()
+            dev_batch = db.batch()
+            print(f"Загружено {i} устройств...")
     
-    # Выполняем пакетную запись
-    print("Выполнение пакетной записи...")
-    batch.commit()
+    if dev_batch._write_pbs:  # Если есть незафиксированные изменения
+        dev_batch.commit()
+    
+    print("Загрузка данных завершена")
 
 def main():
+    # Путь к файлу с данными
+    data_file = os.path.join('data', 'generated_data.json')
+    
     # Проверяем наличие файла с данными
-    if not os.path.exists('generated_data.json'):
-        print("Ошибка: Файл generated_data.json не найден. Сначала выполните data_generator.py")
+    if not os.path.exists(data_file):
+        print(f"Ошибка: Файл {data_file} не найден. Сначала выполните data_generator.py")
         return
     
+    print(f"Загрузка данных из {data_file}...")
     # Загружаем данные
-    with open('generated_data.json', 'r', encoding='utf-8') as f:
+    with open(data_file, 'r', encoding='utf-8') as f:
         data = json.load(f)
     
     # Инициализируем Firebase
