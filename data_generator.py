@@ -4,6 +4,7 @@ import random
 import re
 import asyncio
 import uuid
+import string
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional, Tuple, Set, Union
 from openai import OpenAI
@@ -11,6 +12,14 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+
+# Кэш для хранения серийных номеров по моделям
+model_serial_cache = {}
+
+def generate_serial_number(length: int) -> str:
+    """Генерация случайного серийного номера заданной длины"""
+    chars = string.ascii_uppercase + string.digits
+    return ''.join(random.choices(chars, k=length))
 
 def get_env_value(key: str, env_content: str) -> Optional[str]:
     """Получение значения переменной из файла .env"""
@@ -124,6 +133,52 @@ DEVICE_MODELS = {
     ]
 }
 
+# Настройки по умолчанию для типов устройств
+DEVICE_DEFAULTS = {
+    DeviceType.DESKTOP: {
+        'min': 1,  # Минимальное количество на сотрудника
+        'max': 1,  # Максимальное количество на сотрудника
+        'useful_life': 5,  # Срок полезного использования в годах
+        'manager_only': False
+    },
+    DeviceType.LAPTOP: {
+        'min': 0,
+        'max': 1,
+        'useful_life': 4,
+        'manager_only': True
+    },
+    DeviceType.MONITOR: {
+        'min': 1,
+        'max': 2,
+        'useful_life': 7,
+        'manager_only': False
+    },
+    DeviceType.KEYBOARD: {
+        'min': 1,
+        'max': 1,
+        'useful_life': 4,
+        'manager_only': False
+    },
+    DeviceType.MOUSE: {
+        'min': 1,
+        'max': 1,
+        'useful_life': 3,
+        'manager_only': False
+    },
+    DeviceType.PHONE: {
+        'min': 1,
+        'max': 1,
+        'useful_life': 4,
+        'manager_only': False
+    },
+    DeviceType.TABLET: {
+        'min': 0,
+        'max': 1,
+        'useful_life': 3,
+        'manager_only': True
+    }
+}
+
 # Статусы устройств с весами
 DEVICE_STATUS_WEIGHTS = [
     (DeviceStatus.WORKING.value, 85),
@@ -152,6 +207,21 @@ class Device:
     useful_life: int
     status: str
     ctc: int
+    serial_number: str = ""
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'ID': self.device_id,
+            'empID': self.emp_id,
+            'nomenclature': self.nomenclature.split(' ')[0],  # Берем только тип устройства (первое слово)
+            'model': self.model,
+            'dateReceipt': self.date_receipt,
+            'usefulLife': self.useful_life,
+            'status': self.status,
+            'ctc': self.ctc,
+            'serialNumber': self.serial_number,
+            'fullNomenclature': self.nomenclature  # Сохраняем полное название для отладки
+        }
 
 async def generate_divisions() -> List[Dict]:
     """Генерация иерархии подразделений"""
@@ -236,142 +306,345 @@ class DataGenerator:
         self.used_tns: Set[str] = set()
         self.city_assignments: Dict[str, int] = defaultdict(int)
         self.assigned_employees: Set[str] = set()
+        self._model_serial_cache = {}  # Кэш для хранения использованных серийных номеров по моделям
     
     async def generate_employee(self, emp_id: int) -> Employee:
         """Генерация данных сотрудника"""
-        # Генерация ФИО через API с использованием пакетной обработки
-        fio = await self._generate_fio()
+        try:
+            # Генерация ФИО
+            fio = self._generate_fio()
+            
+            # Генерация уникального табельного номера
+            while True:
+                tn = f"{random.randint(1, 99999999):08d}"
+                if tn not in self.used_tns:
+                    self.used_tns.add(tn)
+                    break
+            
+            # Выбор города с учетом ограничений
+            if emp_id > 0 and emp_id % 100 == 0:
+                print(f"Сгенерировано {emp_id} сотрудников...")
+            
+            city = self._select_city()
+            
+            # Выбор должности
+            position = random.choice(positions)
+            is_manager = position.get('is_manager', False)
+            
+            # Создание сотрудника
+            employee = Employee(
+                empID=str(emp_id),
+                fio=fio,
+                tn=tn,
+                position=position['name'],
+                division="",  # Будет заполнено позже
+                location=city,
+                is_manager=is_manager
+            )
+            
+            self.employees.append(employee)
+            return employee
         
-        # Генерация уникального табельного номера
-        while True:
-            tn = f"{random.randint(1, 99999999):08d}"
-            if tn not in self.used_tns:
-                self.used_tns.add(tn)
-                break
-        
-        # Выбор города с учетом ограничений
-        city = self._select_city()
-        
-        # Выбор должности
-        position = random.choice(positions)
-        is_manager = position.get('is_manager', False)
-        
-        # Создание сотрудника
-        employee = Employee(
-            empID=str(emp_id),
-            fio=fio,
-            tn=tn,
-            position=position['name'],
-            division="",  # Будет заполнено позже
-            location=city,
-            is_manager=is_manager
-        )
-        
-        self.employees.append(employee)
-        return employee
+        except Exception as e:
+            print(f"Ошибка при генерации сотрудника {emp_id}: {e}")
+            # Возвращаем сотрудника с минимальными данными
+            return Employee(
+                empID=str(emp_id),
+                fio=f"Сотрудник {emp_id}",
+                tn="",
+                position=random.choice(positions)['name'],
+                division="",
+                location="",
+                is_manager=False
+            )
     
-    async def _generate_fios_batch(self, count: int) -> List[str]:
+    async def generate_device(self, device_id: int, emp_id: str, is_manager: bool, device_type: DeviceType = None, model: str = None) -> Optional[Device]:
         """
-        Генерация пакета ФИО через API
+        Генерация устройства
         
         Args:
-            count: Количество ФИО для генерации (максимум 20 за запрос)
+            device_id: ID устройства
+            emp_id: ID сотрудника, которому принадлежит устройство
+            is_manager: Является ли сотрудник руководителем
+            device_type: Опционально, тип устройства (если None, выбирается случайно)
+            model: Опционально, модель устройства (если None, выбирается случайно)
             
         Returns:
-            Список сгенерированных ФИО в формате 'Фамилия Имя Отчество'
+            Device или None в случае ошибки
         """
-        max_retries = 3
-        batch_size = min(count, 20)  # Ограничиваем размер пакета
-        
-        for attempt in range(max_retries):
-            try:
-                response = client.chat.completions.create(
-                    model="deepseek-chat",
-                    messages=[
-                        {"role": "system", "content": "Сгенерируй список случайных русских ФИО в формате 'Фамилия Имя Отчество'. Каждое ФИО с новой строки. Только список, без номеров и дополнительного текста."},
-                        {"role": "user", "content": f"Сгенерируй {batch_size} случайных русских ФИО в формате 'Фамилия Имя Отчество', каждое с новой строки"}
-                    ],
-                    max_tokens=1000,
-                    temperature=0.7
-                )
-                
-                # Обработка ответа
-                content = response.choices[0].message.content.strip()
-                fios = [line.strip() for line in content.split('\n') if line.strip()]
-                
-                # Фильтрация некорректных ФИО
-                valid_fios = [fio for fio in fios if len(fio.split()) == 3]
-                
-                if len(valid_fios) >= batch_size * 0.8:  # Принимаем, если валидно >=80% ответов
-                    return valid_fios[:batch_size]
-                else:
-                    print(f"Некорректный формат ФИО в пакете. Получено {len(valid_fios)} из {batch_size}.")
-                    
-            except Exception as e:
-                print(f"Ошибка при генерации ФИО (попытка {attempt + 1}/{max_retries}): {e}")
+        try:
+            if device_id > 0 and device_id % 100 == 0:
+                print(f"Сгенерировано {device_id} устройств...")
             
-            await asyncio.sleep(1)
-        
-        raise RuntimeError(f"Не удалось сгенерировать пакет из {batch_size} ФИО")
+            # Если тип устройства не указан, выбираем случайный
+            if device_type is None:
+                available_types = []
+                for dev_type, settings in DEVICE_DEFAULTS.items():
+                    # Пропускаем устройства только для руководителей, если сотрудник не руководитель
+                    if settings.get('manager_only', False) and not is_manager:
+                        continue
+                    # Проверяем минимальное и максимальное количество устройств этого типа
+                    if settings['min'] > 0 or random.random() < 0.5:  # 50% шанс добавить опциональное устройство
+                        available_types.append(dev_type)
+                
+                if not available_types:
+                    available_types = [DeviceType.PHONE]  # Хотя бы телефон у всех
+                
+                device_type = random.choice(available_types)
+            
+            # Если модель не указана, выбираем случайную из доступных для данного типа
+            if model is None:
+                model = random.choice(DEVICE_MODELS[device_type])
+            
+            # Генерация даты поступления (последние 10 лет)
+            date_receipt = (datetime.now() - timedelta(days=random.randint(1, 3650))).strftime('%Y-%m-%d')
+            
+            # Получаем настройки для типа устройства
+            settings = DEVICE_DEFAULTS[device_type]
+            
+            # Генерация статуса с учетом весов
+            status = random.choices(
+                [s for s, _ in DEVICE_STATUS_WEIGHTS],
+                weights=[w for _, w in DEVICE_STATUS_WEIGHTS]
+            )[0]
+            
+            # Генерация серийного номера
+            serial_number = self._generate_serial_number(model)
+            
+            # Расчет КТС с учетом возраста устройства
+            ctc = self._calculate_ctc(date_receipt)
+            
+            # Определяем производителя для номенклатуры
+            manufacturer_map = {
+                'Dell': 'Dell',
+                'HP': 'HP',
+                'Lenovo': 'Lenovo',
+                'Acer': 'Acer',
+                'LG': 'LG',
+                'Samsung': 'Samsung',
+                'Apple': 'Apple',
+                'Logitech': 'Logitech',
+                'Huawei': 'Huawei',
+                'Xiaomi': 'Xiaomi',
+                'A4Tech': 'A4Tech'
+            }
+            
+            manufacturer = 'Неизвестный производитель'
+            for name, mf in manufacturer_map.items():
+                if name.lower() in model.lower():
+                    manufacturer = mf
+                    break
+            
+            # Формируем номенклатуру: [Тип] [Производитель] [Модель] [Серийный номер]
+            nomenclature = f"{device_type.value} {manufacturer} {model} (SN: {serial_number})"
+            
+            # Создаем и возвращаем устройство
+            device = Device(
+                device_id=str(device_id),
+                emp_id=emp_id,
+                nomenclature=nomenclature,
+                model=model,
+                date_receipt=date_receipt,
+                useful_life=settings['useful_life'],
+                status=status,
+                ctc=ctc,
+                serial_number=serial_number
+            )
+            
+            self.devices.append(device)
+            return device
+            
+        except Exception as e:
+            print(f"Ошибка при генерации устройства {device_id}: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
     
-    async def _generate_fio(self) -> str:
+    def _generate_fio(self) -> str:
         """
-        Генерация одного ФИО с использованием кэширования
+        Генерация ФИО
         
         Returns:
             Строка с ФИО в формате 'Фамилия Имя Отчество'
         """
-        if not hasattr(self, '_fio_cache') or not self._fio_cache:
-            # Генерируем пакет ФИО, если кэш пуст
-            self._fio_cache = await self._generate_fios_batch(10)  # Генерируем пакет из 10 ФИО
+        first_names = ["Александр", "Дмитрий", "Максим", "Сергей", "Андрей", 
+                      "Алексей", "Артём", "Илья", "Кирилл", "Михаил",
+                      "Анна", "Мария", "Елена", "Дарья", "Анастасия",
+                      "Виктория", "Полина", "Екатерина", "София", "Алиса"]
         
-        return self._fio_cache.pop(0)
+        last_names = ["Иванов", "Петров", "Сидоров", "Смирнов", "Кузнецов",
+                     "Попов", "Васильев", "Павлов", "Семёнов", "Голубев",
+                     "Виноградова", "Ковалёва", "Новикова", "Морозова", "Волкова"]
+        
+        middle_names = ["Александрович", "Дмитриевич", "Сергеевич", "Андреевич", 
+                        "Алексеевич", "Максимович", "Ильич", "Кириллович",
+                        "Александровна", "Дмитриевна", "Сергеевна", "Андреевна",
+                        "Алексеевна", "Максимовна", "Ильинична", "Кирилловна"]
+        
+        return f"{random.choice(last_names)} {random.choice(first_names)} {random.choice(middle_names)}"
     
+    def _generate_fallback_fio(self) -> str:
+        """Запасной генератор ФИО (теперь не используется, оставлен для совместимости)"""
+        return self._generate_fio()
+    
+    def _generate_serial_number(self, model: str) -> str:
+        """
+        Генерация уникального серийного номера для модели.
+        Формат: [Префикс производителя][Год][Месяц][Последовательный номер][Контрольная сумма]
+        Длина фиксирована для каждой модели.
+        """
+        if model not in self._model_serial_cache:
+            # Определяем префикс по производителю
+            prefix_map = {
+                'Dell': 'DL',
+                'HP': 'HP',
+                'Lenovo': 'LN',
+                'Acer': 'AC',
+                'LG': 'LG',
+                'Samsung': 'SM',
+                'Apple': 'AP',
+                'Logitech': 'LG',
+                'Huawei': 'HW',
+                'Xiaomi': 'XM',
+                'A4Tech': 'AT'
+            }
+            
+            # Находим префикс по названию модели
+            prefix = 'SN'
+            for name, code in prefix_map.items():
+                if name.lower() in model.lower():
+                    prefix = code
+                    break
+            
+            # Инициализируем кэш для модели
+            self._model_serial_cache[model] = {
+                'prefix': prefix,
+                'counter': 0,
+                'used': set()
+            }
+        
+        # Получаем данные модели
+        cache = self._model_serial_cache[model]
+        
+        # Генерируем уникальный серийный номер
+        while True:
+            # Текущая дата
+            now = datetime.now()
+            year = str(now.year)[-2:]  # Последние 2 цифры года
+            month = f"{now.month:02d}"  # Месяц с ведущим нулём
+            
+            # Увеличиваем счётчик и форматируем с ведущими нулями
+            cache['counter'] += 1
+            counter_str = f"{cache['counter']:06d}"  # 6 цифр с ведущими нулями
+            
+            # Собираем базовый номер
+            base = f"{cache['prefix']}{year}{month}{counter_str}"
+            
+            # Добавляем контрольную сумму (сумма кодов символов по модулю 10)
+            checksum = str(sum(ord(c) for c in base) % 10)
+            serial = f"{base}{checksum}"
+            
+            # Проверяем уникальность
+            if serial not in cache['used']:
+                cache['used'].add(serial)
+                return serial
+    
+    def _calculate_ctc(self, date_receipt: str) -> int:
+        """
+        Расчет Коэффициента Технического Состояния (КТС) с учетом даты поступления.
+        
+        Args:
+            date_receipt: Дата поступления устройства в формате 'YYYY-MM-DD'
+            
+        Returns:
+            int: Значение КТС от 1 до 100
+        """
+        try:
+            receipt_date = datetime.strptime(date_receipt, '%Y-%m-%d')
+            age_days = (datetime.now() - receipt_date).days
+            
+            # Чем новее устройство, тем выше начальный КТС
+            if age_days < 180:  # Меньше 6 месяцев
+                base_ctc = random.randint(80, 100)
+            elif age_days < 365:  # От 6 месяцев до года
+                base_ctc = random.randint(70, 95)
+            elif age_days < 730:  # 1-2 года
+                base_ctc = random.randint(60, 85)
+            elif age_days < 1460:  # 2-4 года
+                base_ctc = random.randint(40, 70)
+            else:  # Более 4 лет
+                base_ctc = random.randint(20, 50)
+            
+            # Добавляем случайное отклонение +/- 5%
+            ctc = base_ctc + random.randint(-5, 5)
+            
+            # Ограничиваем значения от 1 до 100
+            return max(1, min(100, ctc))
+            
+        except Exception as e:
+            print(f"Ошибка при расчете КТС: {e}")
+            # Возвращаем среднее значение в случае ошибки
+            return random.randint(40, 80)
+            
     def _select_city(self) -> str:
-        """Выбор города с учетом ограничений"""
-        # Сначала пробуем найти город, который еще не достиг лимита
-        available_cities = [city for city in CITIES if self.city_assignments.get(city, 0) < NUM_EMPLOYEES // len(CITIES) * 1.5]
-        if not available_cities:
-            available_cities = CITIES
+        """Выбор города с учетом распределения по городам"""
+        # Выбираем город с учетом весов (чем больше город, тем больше вероятность выбора)
+        city_weights = [
+            (city, 100 - i)  # Уменьшаем вес для каждого следующего города
+            for i, city in enumerate(CITIES)
+        ]
         
-        city = random.choice(available_cities)
-        self.city_assignments[city] = self.city_assignments.get(city, 0) + 1
-        return city
+        # Нормализуем веса
+        total_weight = sum(weight for city, weight in city_weights)
+        normalized_weights = [weight / total_weight for city, weight in city_weights]
+        
+        # Выбираем город с учетом весов
+        selected_city = random.choices(
+            [city for city, weight in city_weights],
+            weights=normalized_weights,
+            k=1
+        )[0]
+        
+        return selected_city
     
-    async def generate_device(self, device_id: int, emp_id: str, is_manager: bool) -> Device:
-        """Генерация устройства"""
-        # Выбор типа устройства
-        if is_manager and random.random() < 0.7:  # 70% шанс для руководителя
-            device_type = random.choice([DeviceType.LAPTOP, DeviceType.TABLET])
-        else:
-            device_type = random.choice([
-                DeviceType.DESKTOP,
-                DeviceType.MONITOR,
-                DeviceType.KEYBOARD,
-                DeviceType.MOUSE,
-                DeviceType.PHONE
-            ])
-        
-        # Генерация данных устройства
-        model = random.choice(DEVICE_MODELS[device_type])
-        date_receipt = self._generate_date_receipt()
-        useful_life = 3 if device_type in [DeviceType.LAPTOP, DeviceType.TABLET] else 5
-        status = self._generate_status()
-        ctc = self._generate_ctc(date_receipt)
-        
-        device = Device(
-            device_id=str(device_id),
-            emp_id=emp_id,
-            nomenclature=device_type.value,
-            model=model,
-            date_receipt=date_receipt,
-            useful_life=useful_life,
-            status=status,
-            ctc=ctc
-        )
-        
-        self.devices.append(device)
-        return device
+    async def _generate_fios_batch(self, count: int) -> None:
+        """Генерация пакета ФИО с использованием OpenAI API"""
+        try:
+            prompt = f"""Сгенерируй {count} случайных русских ФИО в формате 'Фамилия Имя Отчество'.
+Каждое ФИО с новой строки. Только список, без номеров и дополнительного текста.
+
+Примеры правильного формата:
+Иванов Иван Иванович
+Петрова Мария Сергеевна
+Сидоров Алексей Петрович"""
+            
+            response = client.chat.completions.create(
+                model="deepseek-chat",
+                messages=[
+                    {"role": "system", "content": "Ты помощник, который генерирует списки русских ФИО. Важно: только ФИО, по одному на строку."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=2000,
+                temperature=0.8,
+                timeout=30
+            )
+            
+            # Обработка ответа
+            content = response.choices[0].message.content.strip()
+            fios = [line.strip() for line in content.split('\n') if line.strip()]
+            
+            # Инициализируем кэш, если его еще нет
+            if not hasattr(self, '_fio_cache'):
+                self._fio_cache = []
+                
+            self._fio_cache.extend(fios)
+            print(f"Сгенерировано {len(fios)} ФИО через API")
+            
+        except Exception as e:
+            print(f"Ошибка при генерации ФИО через API: {e}")
+            if not hasattr(self, '_fio_cache') or not self._fio_cache:
+                # Если не удалось сгенерировать через API и кэш пуст, заполняем запасными значениями
+                self._fio_cache = [self._generate_fallback_fio() for _ in range(count)]
     
     def _generate_date_receipt(self) -> str:
         """Генерация даты поступления"""
@@ -457,9 +730,10 @@ class DataGenerator:
         print(f"Генерация {NUM_DEVICES} устройств...")
         device_count = 0
         
+        # Сначала генерируем обязательные устройства для всех сотрудников
         for emp in self.employees:
             # Обязательные устройства для всех
-            devices_per_employee = [
+            mandatory_devices = [
                 (DeviceType.DESKTOP, 1, 1),
                 (DeviceType.KEYBOARD, 1, 1),
                 (DeviceType.MOUSE, 1, 1),
@@ -467,25 +741,106 @@ class DataGenerator:
                 (DeviceType.MONITOR, 1, 2)  # 1-2 монитора
             ]
             
-            # Дополнительные устройства для руководителей
-            if emp.is_manager:
-                if random.random() < 0.7:  # 70% шанс на ноутбук
-                    devices_per_employee.append((DeviceType.LAPTOP, 0, 1))
-                if random.random() < 0.4:  # 40% шанс на планшет
-                    devices_per_employee.append((DeviceType.TABLET, 0, 1))
-            
-            # Генерация устройств для сотрудника
-            for device_type, min_count, max_count in devices_per_employee:
+            # Генерация обязательных устройств
+            for device_type, min_count, max_count in mandatory_devices:
+                if device_count >= NUM_DEVICES:
+                    break
+                    
+                # Выбираем модель для данного типа устройства
+                model = random.choice(DEVICE_MODELS[device_type])
+                
+                # Генерируем указанное количество устройств
                 count = random.randint(min_count, max_count)
                 for _ in range(count):
                     if device_count >= NUM_DEVICES:
                         break
+                        
+                    # Создаем устройство с указанным типом и моделью
                     await self.generate_device(
-                        device_count + 1,
-                        emp.empID,
-                        emp.is_manager
+                        device_id=device_count + 1,
+                        emp_id=emp.empID,
+                        is_manager=emp.is_manager,
+                        device_type=device_type,
+                        model=model
                     )
                     device_count += 1
+        
+        # Затем генерируем дополнительные устройства для руководителей
+        manager_employees = [emp for emp in self.employees if emp.is_manager]
+        if manager_employees and device_count < NUM_DEVICES:
+            # Дополнительные устройства для руководителей
+            extra_devices = [
+                (DeviceType.LAPTOP, 0.7),  # 70% шанс на ноутбук
+                (DeviceType.TABLET, 0.4),   # 40% шанс на планшет
+                (DeviceType.MONITOR, 0.3)   # 30% шанс на дополнительный монитор
+            ]
+            
+            for emp in manager_employees:
+                if device_count >= NUM_DEVICES:
+                    break
+                    
+                for device_type, probability in extra_devices:
+                    if random.random() < probability:
+                        # Выбираем модель для данного типа устройства
+                        model = random.choice(DEVICE_MODELS[device_type])
+                        
+                        # Создаем устройство с указанным типом и моделью
+                        await self.generate_device(
+                            device_id=device_count + 1,
+                            emp_id=emp.empID,
+                            is_manager=True,
+                            device_type=device_type,
+                            model=model
+                        )
+                        device_count += 1
+                        
+                        if device_count >= NUM_DEVICES:
+                            break
+        
+        # Если остались доступные устройства, распределяем их случайным образом
+        remaining_devices = NUM_DEVICES - device_count
+        if remaining_devices > 0:
+            print(f"Распределение оставшихся {remaining_devices} устройств...")
+            
+            # Создаем список всех возможных типов устройств с их весами
+            device_weights = [
+                (DeviceType.DESKTOP, 20),
+                (DeviceType.LAPTOP, 15),
+                (DeviceType.MONITOR, 25),
+                (DeviceType.PHONE, 15),
+                (DeviceType.TABLET, 10),
+                (DeviceType.KEYBOARD, 10),
+                (DeviceType.MOUSE, 5)
+            ]
+            
+            for _ in range(remaining_devices):
+                if device_count >= NUM_DEVICES:
+                    break
+                    
+                # Выбираем случайный тип устройства с учетом весов
+                total_weight = sum(weight for _, weight in device_weights)
+                r = random.uniform(0, total_weight)
+                upto = 0
+                for device_type, weight in device_weights:
+                    if upto + weight >= r:
+                        break
+                    upto += weight
+                
+                # Выбираем случайного сотрудника
+                emp = random.choice(self.employees)
+                
+                # Выбираем модель для данного типа устройства
+                model = random.choice(DEVICE_MODELS[device_type])
+                
+                # Создаем устройство
+                await self.generate_device(
+                    device_id=device_count + 1,
+                    emp_id=emp.empID,
+                    is_manager=emp.is_manager,
+                    device_type=device_type,
+                    model=model
+                )
+                device_count += 1
         
         print(f"Всего сгенерировано {len(self.employees)} сотрудников и {len(self.devices)} устройств")
         
@@ -507,7 +862,8 @@ class DataGenerator:
             'dateReceipt': dev.date_receipt,
             'usefulLife': dev.useful_life,
             'status': dev.status,
-            'ctc': dev.ctc
+            'ctc': dev.ctc,
+            'serialNumber': dev.serial_number
         } for dev in self.devices]
         
         return {
@@ -549,57 +905,40 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())
 
-# Конфигурация устройств
-DEVICE_TYPES = {
-    'monitor': {
-        'count_per_employee': (1, 2),  # мин, макс на сотрудника
-        'useful_life': 5,  # лет
-        'models': [
-            'Dell U2419H', 'LG 24MK400H-B', 'Samsung S24R350', 'Acer R240Y', 'HP 24mh'
-        ]
-    },
-    'desktop': {
-        'count_per_employee': (1, 1),
-        'useful_life': 5,
-        'models': [
-            'Dell OptiPlex 3080', 'HP ProDesk 400 G7', 'Lenovo ThinkCentre M75q', 'Acer Veriton X2660G'
-        ]
-    },
-    'laptop': {
-        'count_per_employee': (0, 1),  # только для руководителей
-        'useful_life': 3,
-        'models': [
-            'Dell Latitude 5420', 'HP EliteBook 840 G8', 'Lenovo ThinkPad T14', 'Apple MacBook Pro 16" M1'
-        ]
-    },
-    'tablet': {
-        'count_per_employee': (0, 1),  # только для руководителей
-        'useful_life': 3,
-        'models': [
-            'Apple iPad Pro 12.9"', 'Samsung Galaxy Tab S7', 'Huawei MatePad Pro', 'Lenovo Tab P12 Pro'
-        ]
-    },
-    'phone': {
-        'count_per_employee': (1, 1),
-        'useful_life': 3,
-        'models': [
-            'iPhone 13', 'Samsung Galaxy S21', 'Xiaomi Redmi Note 11', 'Huawei P50'
-        ]
-    },
-    'keyboard': {
-        'count_per_employee': (1, 1),
-        'useful_life': 5,
-        'models': [
-            'Logitech K120', 'Dell KB216', 'HP K1500', 'A4Tech KR-85'
-        ]
-    },
-    'mouse': {
-        'count_per_employee': (1, 1),
-        'useful_life': 5,
-        'models': [
-            'Logitech M90', 'Dell MS116', 'HP X500', 'A4Tech OP-620D'
-        ]
-    }
+# Конфигурация моделей устройств
+DEVICE_MODELS = {
+    DeviceType.MONITOR: [
+        'Dell U2419H', 'LG 24MK400H-B', 'Samsung S24R350', 'Acer R240Y', 'HP 24mh'
+    ],
+    DeviceType.DESKTOP: [
+        'Dell OptiPlex 3080', 'HP ProDesk 400 G7', 'Lenovo ThinkCentre M75q', 'Acer Veriton X2660G'
+    ],
+    DeviceType.LAPTOP: [
+        'Dell Latitude 5420', 'HP EliteBook 840 G8', 'Lenovo ThinkPad T14', 'Apple MacBook Pro 16" M1'
+    ],
+    DeviceType.TABLET: [
+        'Apple iPad Pro 12.9"', 'Samsung Galaxy Tab S7', 'Huawei MatePad Pro', 'Lenovo Tab P12 Pro'
+    ],
+    DeviceType.PHONE: [
+        'iPhone 13', 'Samsung Galaxy S21', 'Xiaomi Redmi Note 11', 'Huawei P50'
+    ],
+    DeviceType.KEYBOARD: [
+        'Logitech K120', 'Dell KB216', 'HP K1500', 'A4Tech KR-85'
+    ],
+    DeviceType.MOUSE: [
+        'Logitech M90', 'Dell MS116', 'HP X500', 'A4Tech OP-620D'
+    ]
+}
+
+# Настройки по умолчанию для типов устройств
+DEVICE_DEFAULTS = {
+    DeviceType.MONITOR: {'min': 1, 'max': 2, 'useful_life': 5},
+    DeviceType.DESKTOP: {'min': 1, 'max': 1, 'useful_life': 5},
+    DeviceType.LAPTOP: {'min': 0, 'max': 1, 'useful_life': 3, 'manager_only': True},
+    DeviceType.TABLET: {'min': 0, 'max': 1, 'useful_life': 3, 'manager_only': True},
+    DeviceType.PHONE: {'min': 1, 'max': 1, 'useful_life': 3},
+    DeviceType.KEYBOARD: {'min': 1, 'max': 1, 'useful_life': 5},
+    DeviceType.MOUSE: {'min': 1, 'max': 1, 'useful_life': 5}
 }
 
 # Статусы устройств
@@ -683,108 +1022,59 @@ def get_env_value(key: str, env_content: str) -> Optional[str]:
             print(f"Ошибка при инициализации клиента OpenAI: {e}")
             raise
 
-async def generate_reference_data() -> Tuple[List[str], List[Dict], List[Dict]]:
+async def generate_reference_data() -> Dict[str, Any]:
     """Генерация справочных данных (города, подразделения, должности)"""
-    prompt = """
-    Сгенерируй справочные данные для банковской системы:
-    
-    1. Список из 15 крупных городов России (только названия, по одному на строку)
-    
-    2. Список из 15 подразделений банка в формате JSON-массива, где каждый элемент имеет поля:
-       - name: полное название подразделения (с указанием уровня: сектор/отдел/управление/центр)
-       - level: уровень иерархии (0-сектор, 1-отдел, 2-управление, 3-центр)
-       - parent: индекс родительского подразделения (null для центров)
-    
-    3. Список из 15 должностей в банке в формате JSON-массива, где каждый элемент имеет поля:
-       - name: название должности
-       - is_manager: true/false (является ли руководящей)
-    
-    Пример структуры ответа:
-    ```
-    Города:
-    Москва
-    Санкт-Петербург
-    ...
-    
-    Подразделения:
-    [
-        {"name": "Центр розничного бизнеса", "level": 3, "parent": null},
-        {"name": "Управление кредитования", "level": 2, "parent": 0},
-        ...
-    ]
-    
-    Должности:
-    [
-        {"name": "Менеджер по продажам", "is_manager": false},
-        {"name": "Начальник отдела", "is_manager": true},
-        ...
-    ]
-    ```
-    """
-    
     try:
         # Пытаемся загрузить из кэша, чтобы не генерировать заново
         if os.path.exists('reference_cache.json'):
             with open('reference_cache.json', 'r', encoding='utf-8') as f:
-                cached_data = json.load(f)
-                return cached_data['cities'], cached_data['divisions'], cached_data['positions']
+                return json.load(f)
         
-        # Если кэша нет, генерируем через API
-        messages = [
-            {"role": "system", "content": "Ты - генератор структурированных данных. Возвращай только запрошенные данные в указанном формате."},
-            {"role": "user", "content": prompt}
-        ]
-        
-        completion = await asyncio.wait_for(
-            asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: client.chat.completions.create(
-                    model="deepseek-chat",
-                    messages=messages,
-                    temperature=0.7,
-                    max_tokens=2000
-                )
-            ),
-            timeout=60.0
-        )
-        
-        response = completion.choices[0].message.content.strip()
-        
-        # Парсим ответ
-        cities_section = response.split('Города:')[1].split('\n\n')[0].strip()
-        cities = [line.strip() for line in cities_section.split('\n') if line.strip()]
-        
-        divisions_section = response.split('Подразделения:')[1].split('\n\n')[0].strip()
-        divisions = json.loads(divisions_section)
-        
-        positions_section = response.split('Должности:')[1].strip()
-        positions = json.loads(positions_section)
+        # Если кэша нет, используем встроенные тестовые данные
+        data = {
+            'cities': [
+                "Москва", "Санкт-Петербург", "Новосибирск", "Екатеринбург", "Казань",
+                "Нижний Новгород", "Челябинск", "Самара", "Омск", "Ростов-на-Дону",
+                "Уфа", "Красноярск", "Пермь", "Воронеж", "Волгоград"
+            ],
+            'divisions': [
+                {"name": "Центр розничного бизнеса", "level": 3, "parent": None},
+                {"name": "Управление кредитования", "level": 2, "parent": 0},
+                {"name": "Отдел ипотечного кредитования", "level": 1, "parent": 1},
+                {"name": "Сектор андеррайтинга", "level": 0, "parent": 2},
+                {"name": "Центр корпоративного бизнеса", "level": 3, "parent": None},
+                {"name": "Управление расчетно-кассового обслуживания", "level": 2, "parent": 4},
+                {"name": "Отдел валютного контроля", "level": 1, "parent": 5}
+            ],
+            'positions': [
+                {"name": "Менеджер по продажам", "is_manager": False},
+                {"name": "Старший менеджер", "is_manager": False},
+                {"name": "Ведущий специалист", "is_manager": False},
+                {"name": "Начальник отдела", "is_manager": True},
+                {"name": "Заместитель начальника отдела", "is_manager": True},
+                {"name": "Директор департамента", "is_manager": True},
+                {"name": "Руководитель направления", "is_manager": True},
+                {"name": "Специалист", "is_manager": False}
+            ]
+        }
         
         # Сохраняем в кэш
         with open('reference_cache.json', 'w', encoding='utf-8') as f:
-            json.dump({
-                'cities': cities,
-                'divisions': divisions,
-                'positions': positions
-            }, f, ensure_ascii=False, indent=2)
+            json.dump(data, f, ensure_ascii=False, indent=2)
         
-        return cities, divisions, positions
+        return data
         
     except Exception as e:
         print(f"Ошибка при генерации справочных данных: {e}")
-        # Возвращаем тестовые данные в случае ошибки
-        return (
-            ["Москва", "Санкт-Петербург", "Новосибирск", "Екатеринбург", "Казань"],
-            [
-                {"name": "Центр розничного бизнеса", "level": 3, "parent": None},
-                {"name": "Управление кредитования", "level": 2, "parent": 0},
-                {"name": "Отдел ипотечного кредитования", "level": 1, "parent": 1}
-            ],
-            [
-                {"name": "Менеджер по продажам", "is_manager": False},
-                {"name": "Начальник отдела", "is_manager": True}
+        # Возвращаем минимальный набор данных в случае ошибки
+        return {
+            'cities': ["Москва", "Санкт-Петербург", "Новосибирск"],
+            'divisions': [{"name": "Головной офис", "level": 3, "parent": None}],
+            'positions': [
+                {"name": "Специалист", "is_manager": False},
+                {"name": "Руководитель", "is_manager": True}
             ]
-        )
+        }
 
 async def generate_employee(emp_id: int, cities: List[str], positions: List[Dict]) -> Dict[str, Any]:
     """Генерация данных сотрудника"""
@@ -822,50 +1112,6 @@ async def generate_employee(emp_id: int, cities: List[str], positions: List[Dict
         'division': 'Не распределено',  # Временное значение, будет перезаписано
         'location': address,  # Полный адрес
         'is_manager': is_manager
-    }
-
-def generate_device(device_id: int, emp_id: str, is_manager: bool) -> Dict[str, Any]:
-    """Генерация данных устройства"""
-    # Определяем типы устройств для сотрудника
-    device_types = []
-    for dev_type, config in DEVICE_TYPES.items():
-        min_count, max_count = config['count_per_employee']
-        if is_manager or dev_type not in ['laptop', 'tablet']:
-            count = random.randint(min_count, max_count)
-            device_types.extend([dev_type] * count)
-    
-    if not device_types:
-        return None
-    
-    # Выбираем случайный тип устройства
-    dev_type = random.choice(device_types)
-    config = DEVICE_TYPES[dev_type]
-    
-    # Генерируем дату поступления (не ранее 2015, не позднее 2025-06-01)
-    receipt_date = random_date('2015-01-01', '2025-06-01')
-    
-    # Вычисляем КТС (чем новее устройство, тем выше КТС в среднем)
-    receipt_year = int(receipt_date[:4])
-    years_passed = 2025 - receipt_year
-    ctc_base = max(0, 100 - years_passed * 20)  # Базовый КТС уменьшается на 20% в год
-    ctc = random.randint(max(0, ctc_base - 20), min(100, ctc_base + 20))  # Добавляем случайность ±20%
-    
-    # Генерируем статус устройства согласно заданным вероятностям
-    status = random.choices(
-        ["исправен", "неисправен", "поиск", "утерян"],
-        weights=[85, 10, 3, 2],  # Проценты: 85%, 10%, 3%, 2%
-        k=1
-    )[0]
-    
-    return {
-        'deviceID': f"dev_{device_id:06d}",
-        'empID': emp_id,
-        'nomenclature': dev_type,
-        'model': random.choice(config['models']),
-        'dateReceipt': receipt_date,
-        'usefulLife': config['useful_life'],
-        'status': status,  # Используем сгенерированный статус
-        'ctc': ctc
     }
 
 def assign_divisions_to_employees(employees: List[Dict], divisions: List[Dict]) -> None:
@@ -930,89 +1176,198 @@ def save_to_json(data: Dict[str, Any], filename: str) -> None:
         json.dump(data, f, ensure_ascii=False, indent=2, default=str)
     print(f"Данные сохранены в {filename}")
 
-async def generate_data() -> Dict[str, Any]:
+async def generate_data():
     """Основная функция генерации данных"""
-    print("=== Начало генерации данных ===\n")
+    print("=== Генератор тестовых данных для банка ===")
+    print(f"Будет сгенерировано:")
+    print(f"- Сотрудники: {NUM_EMPLOYEES}")
+    print(f"- Устройства: {NUM_DEVICES}")
+    print("\nНачало генерации...")
+    
+    start_time = time.time()
     
     try:
-        # 1. Инициализация клиента OpenAI
-        init_openai_client()
+        # 1. Генерация справочных данных
+        print("\n1. Генерация справочных данных...")
+        try:
+            ref_data = await generate_reference_data()
+            print(f"   • Города: {len(ref_data['cities'])}")
+            print(f"   • Подразделения: {len(ref_data['divisions'])}")
+            print(f"   • Должности: {len(ref_data['positions'])}")
+        except Exception as e:
+            print(f"Ошибка при генерации справочных данных: {str(e)}")
+            ref_data = {
+                'cities': CITIES,
+                'divisions': [{"name": "Головной офис", "level": 3, "parent": None}],
+                'positions': [
+                    {"name": "Специалист", "is_manager": False},
+                    {"name": "Руководитель", "is_manager": True}
+                ]
+            }
+            print(f"   • Используются стандартные значения")
+            print(f"   • Города: {len(ref_data['cities'])}")
+            print(f"   • Подразделения: {len(ref_data['divisions'])}")
+            print(f"   • Должности: {len(ref_data['positions'])}")
         
-        # 2. Генерация справочных данных
-        print("1. Генерация справочных данных...")
-        cities, divisions_raw, positions = await generate_reference_data()
-        
-        # Преобразуем подразделения в иерархическую структуру
-        divisions = generate_divisions_hierarchy(divisions_raw)
-        
-        print(f"   • Города: {len(cities)}")
-        print(f"   • Подразделения: {len(divisions)}")
-        print(f"   • Должности: {len(positions)}")
-        
-        # 3. Генерация сотрудников
+        # 2. Генерация сотрудников
         print("\n2. Генерация сотрудников...")
         employees = []
         for i in range(1, NUM_EMPLOYEES + 1):
             if i % 100 == 0 or i == 1 or i == NUM_EMPLOYEES:
                 print(f"   • Сотрудник {i}/{NUM_EMPLOYEES}")
-            employee = await generate_employee(i, cities, positions)
-            employees.append(employee)
+            
+            emp = await generate_employee(i, ref_data['cities'], ref_data['positions'])
+            if emp:
+                employees.append(emp)
         
-        # 4. Распределение по подразделениям
+        # 3. Распределение по подразделениям
         print("\n3. Распределение по подразделениям...")
-        assign_divisions_to_employees(employees, divisions_raw)
+        if ref_data['divisions']:
+            assign_divisions_to_employees(employees, ref_data['divisions'])
+        else:
+            print("   • Нет данных о подразделениях, пропускаем распределение")
         
-        # 5. Генерация устройств
+        # 4. Генерация устройств
         print("\n4. Генерация устройств...")
         devices = []
-        device_id = 1
+        data_gen = DataGenerator()
         
-        for i, emp in enumerate(employees, 1):
-            if i % 100 == 0 or i == 1 or i == len(employees):
-                print(f"   • Обработка сотрудника {i}/{len(employees)}")
-            
-            # Генерируем устройства для сотрудника
+        # Сначала генерируем обязательные устройства для всех сотрудников
+        for emp in employees:
             is_manager = emp.get('is_manager', False)
-            dev_count = random.randint(3, 6) if is_manager else random.randint(2, 4)
             
-            for _ in range(dev_count):
-                if device_id > NUM_DEVICES:
+            # Обязательные устройства для всех
+            for dev_type, settings in DEVICE_DEFAULTS.items():
+                if settings.get('manager_only', False) and not is_manager:
+                    continue
+                    
+                min_count = settings['min']
+                max_count = settings['max']
+                
+                # Генерируем указанное количество устройств
+                count = random.randint(min_count, max_count)
+                for _ in range(count):
+                    if len(devices) >= NUM_DEVICES:
+                        break
+                        
+                    # Выбираем модель для данного типа устройства
+                    model = random.choice(DEVICE_MODELS[dev_type])
+                    
+                    # Создаем устройство с указанным типом и моделью
+                    device = await data_gen.generate_device(
+                        device_id=len(devices) + 1,
+                        emp_id=emp['empID'],
+                        is_manager=is_manager,
+                        device_type=dev_type,
+                        model=model
+                    )
+                    
+                    if device:
+                        devices.append(device.to_dict() if hasattr(device, 'to_dict') else device)
+        
+        # Затем генерируем дополнительные устройства для руководителей
+        manager_employees = [emp for emp in employees if emp.get('is_manager', False)]
+        if manager_employees and len(devices) < NUM_DEVICES:
+            # Дополнительные устройства для руководителей
+            extra_devices = [
+                (DeviceType.LAPTOP, 0.7),  # 70% шанс на ноутбук
+                (DeviceType.TABLET, 0.4),   # 40% шанс на планшет
+                (DeviceType.MONITOR, 0.3)   # 30% шанс на дополнительный монитор
+            ]
+            
+            for emp in manager_employees:
+                if len(devices) >= NUM_DEVICES:
                     break
                     
-                device = generate_device(device_id, emp['empID'], is_manager)
-                if device:
-                    devices.append(device)
-                    device_id += 1
+                for device_type, probability in extra_devices:
+                    if random.random() < probability:
+                        # Выбираем модель для данного типа устройства
+                        model = random.choice(DEVICE_MODELS[device_type])
+                        
+                        # Создаем устройство с указанным типом и моделью
+                        device = await data_gen.generate_device(
+                            device_id=len(devices) + 1,
+                            emp_id=emp['empID'],
+                            is_manager=True,
+                            device_type=device_type,
+                            model=model
+                        )
+                        
+                        if device:
+                            devices.append(device.to_dict() if hasattr(device, 'to_dict') else device)
+                            
+                        if len(devices) >= NUM_DEVICES:
+                            break
         
-        # 6. Формируем итоговые данные
+        # Если остались доступные устройства, распределяем их случайным образом
+        remaining_devices = NUM_DEVICES - len(devices)
+        if remaining_devices > 0:
+            print(f"   • Распределение оставшихся {remaining_devices} устройств...")
+            
+            # Создаем список всех возможных типов устройств с их весами
+            device_weights = [
+                (DeviceType.DESKTOP, 20),
+                (DeviceType.LAPTOP, 15),
+                (DeviceType.MONITOR, 25),
+                (DeviceType.PHONE, 15),
+                (DeviceType.TABLET, 10),
+                (DeviceType.KEYBOARD, 10),
+                (DeviceType.MOUSE, 5)
+            ]
+            
+            for _ in range(remaining_devices):
+                if len(devices) >= NUM_DEVICES:
+                    break
+                    
+                # Выбираем случайный тип устройства с учетом весов
+                total_weight = sum(weight for _, weight in device_weights)
+                r = random.uniform(0, total_weight)
+                upto = 0
+                for device_type, weight in device_weights:
+                    if upto + weight >= r:
+                        break
+                    upto += weight
+                
+                # Выбираем случайного сотрудника
+                emp = random.choice(employees)
+                
+                # Выбираем модель для данного типа устройства
+                model = random.choice(DEVICE_MODELS[device_type])
+                
+                # Создаем устройство
+                device = await data_gen.generate_device(
+                    device_id=len(devices) + 1,
+                    emp_id=emp['empID'],
+                    is_manager=emp.get('is_manager', False),
+                    device_type=device_type,
+                    model=model
+                )
+                
+                if device:
+                    devices.append(device.to_dict() if hasattr(device, 'to_dict') else device)
+        
+        print(f"   • Всего сгенерировано {len(devices)} устройств")
+        
+        # 5. Формируем итоговые данные
         print("\n5. Формирование результата...")
         result = {
-            'metadata': {
-                'generated_at': datetime.now().isoformat(),
-                'employees_count': len(employees),
-                'devices_count': len(devices),
-                'cities_count': len(cities),
-                'divisions_count': len(divisions)
-            },
-            'cities': [{'cityID': f'city_{i:03d}', 'name': name} 
-                      for i, name in enumerate(cities, 1)],
-            'divisions': divisions,
             'employees': employees,
-            'devices': devices
+            'devices': devices,
+            'reference_data': ref_data
         }
         
-        # 7. Сохраняем данные
+        # 6. Сохранение в JSON
         print("\n6. Сохранение данных...")
-        save_to_json(result, 'generated_data.json')
+        os.makedirs('data', exist_ok=True)
+        output_file = os.path.join('data', 'generated_data.json')
         
-        # 8. Выводим статистику
-        print("\n=== Генерация данных завершена успешно ===")
-        print(f"\nСтатистика:")
-        print(f"- Сотрудники: {len(employees)}")
-        print(f"- Устройства: {len(devices)}")
-        print(f"- Города: {len(cities)}")
-        print(f"- Подразделения: {len(divisions)}")
+        # Удаляем старый файл, если он существует
+        if os.path.exists(output_file):
+            os.remove(output_file)
+            print(f"Удален старый файл: {output_file}")
         
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(result, f, ensure_ascii=False, indent=2)
         return result
         
     except Exception as e:
@@ -1041,13 +1396,7 @@ async def main():
         traceback.print_exc()
         return False
 
-# Веса для статусов устройств (чем больше вес, тем выше вероятность)
-DEVICE_STATUSES = [
-    ("исправен", 85),     # 85% вероятность
-    ("неисправен", 10),   # 10% вероятность
-    ("поиск", 3),         # 3% вероятность
-    ("утерян", 2)         # 2% вероятность
-]
+# Удаляем дублирующееся определение DEVICE_STATUSES
 
 # Списки для генерации адресов
 STREET_TYPES = ['ул.', 'пр-т', 'шоссе', 'наб.', 'пер.', 'б-р']
@@ -1117,36 +1466,103 @@ def generate_address(city: str) -> str:
     building = random.choice(['', f', к{random.randint(1, 5)}', f', стр. {random.randint(1, 10)}'])
     return f"{city}, {district} р-н, {street}, д. {house}{building}"
 
+async def shutdown(signal, loop):
+    """Аккуратная обработка завершения работы"""
+    print(f"Получен сигнал {signal.name}...")
+    tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+    
+    for task in tasks:
+        task.cancel()
+    
+    await asyncio.gather(*tasks, return_exceptions=True)
+    loop.stop()
+
 if __name__ == "__main__":
+    import asyncio
+    import signal
     import time
+    from datetime import datetime
+    
+    # Создаем и настраиваем цикл событий
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
     start_time = time.time()
     
+    async def main():
+        try:
+            print("=== Запуск генерации данных ===")
+            result = await generate_data()
+            
+            if result:
+                print("\n=== Генерация данных завершена успешно ===")
+                print(f"\nСтатистика:")
+                print(f"- Сотрудники: {len(result['employees'])}")
+                print(f"- Устройства: {len(result['devices'])}")
+                print(f"- Города: {len(result['reference_data']['cities'])}")
+                print(f"- Подразделения: {len(result['reference_data']['divisions'])}")
+                
+                # Сохраняем статистику
+                elapsed_time = time.time() - start_time
+                stats = {
+                    'generated_at': datetime.now().isoformat(),
+                    'execution_time_seconds': round(elapsed_time, 2),
+                    'status': 'completed',
+                    'output_file': 'data/generated_data.json',
+                    'employees_count': len(result['employees']),
+                    'devices_count': len(result['devices'])
+                }
+                
+                os.makedirs('data', exist_ok=True)
+                with open('data/generation_stats.json', 'w', encoding='utf-8') as f:
+                    json.dump(stats, f, ensure_ascii=False, indent=2)
+                
+                return True
+            else:
+                print("\n!!! Генерация данных завершилась с ошибкой")
+                return False
+                
+        except Exception as e:
+            print(f"\n!!! Критическая ошибка: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return False
+        finally:
+            # Останавливаем цикл событий после завершения
+            loop.stop()
+    
+    # Настраиваем обработчики сигналов для корректного завершения
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            loop.add_signal_handler(sig, lambda: asyncio.create_task(shutdown(sig, loop)))
+        except (NotImplementedError, RuntimeError):
+            # Игнорируем ошибки на платформах, где не поддерживается
+            pass
+    
+    # Удаляем старые файлы данных, если они существуют
+    for filename in ['data/generated_data.json', 'data/employees.json', 'data/devices.json']:
+        try:
+            os.makedirs('data', exist_ok=True)
+            os.remove(filename)
+            print(f"Удален старый файл: {filename}")
+        except FileNotFoundError:
+            pass
+    
+    # Запускаем генерацию данных
+    success = False
     try:
-        print("=== Запуск генерации данных ===")
-        success = asyncio.run(main())
-        if not success:
-            print("\n❌ Генерация данных завершилась с ошибками.")
-            exit(1)
-        print("\n✅ Генерация данных успешно завершена!")
+        loop.run_until_complete(main())
+        success = True
     except KeyboardInterrupt:
-        print("\n⚠️ Генерация данных прервана пользователем.")
-        exit(1)
+        print("\nГенерация данных прервана пользователем.")
     except Exception as e:
-        print(f"\n❌ Непредвиденная ошибка: {e}")
+        print(f"\nПроизошла ошибка: {e}")
         import traceback
         traceback.print_exc()
-        exit(1)
     finally:
         elapsed_time = time.time() - start_time
-        print(f"\n⏱ Общее время выполнения: {elapsed_time:.2f} секунд")
+        print(f"\nОбщее время выполнения: {elapsed_time:.2f} секунд")
         
-        # Сохраняем статистику в файл
-        stats = {
-            'generated_at': datetime.now().isoformat(),
-            'execution_time_seconds': round(elapsed_time, 2),
-            'status': 'completed' if success else 'failed',
-            'output_file': 'generated_data.json'
-        }
-        
-        with open('generation_stats.json', 'w', encoding='utf-8') as f:
-            json.dump(stats, f, ensure_ascii=False, indent=2)
+        # Закрываем цикл событий
+        loop.close()
+        exit(0 if success else 1)

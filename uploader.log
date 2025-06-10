@@ -1,0 +1,490 @@
+2025-06-10 21:19:07,136 - INFO - Чтение данных из файла: data\generated_data.json
+2025-06-10 21:19:07,156 - ERROR - Ошибка при инициализации Firebase: Failed to initialize a certificate credential. Caused by: "None could not be converted to bytes"
+Traceback (most recent call last):
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\firebase_admin\credentials.py", line 110, in __init__
+    self._g_credential = service_account.Credentials.from_service_account_info(
+                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        json_data, scopes=_scopes)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\oauth2\service_account.py", line 243, in from_service_account_info
+    signer = _service_account_info.from_dict(
+        info, require=["client_email", "token_uri"]
+    )
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\auth\_service_account_info.py", line 57, in from_dict
+    signer = crypt.RSASigner.from_service_account_info(data)
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\auth\crypt\base.py", line 109, in from_service_account_info
+    return cls.from_string(
+           ~~~~~~~~~~~~~~~^
+        info[_JSON_FILE_PRIVATE_KEY], info.get(_JSON_FILE_PRIVATE_KEY_ID)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\auth\crypt\_cryptography_rsa.py", line 132, in from_string
+    key = _helpers.to_bytes(key)
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\auth\_helpers.py", line 157, in to_bytes
+    raise exceptions.InvalidValue(
+        "{0!r} could not be converted to bytes".format(value)
+    )
+google.auth.exceptions.InvalidValue: None could not be converted to bytes
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\data_uploader.py", line 42, in initialize_firebase
+    cred = credentials.Certificate({
+        "type": "service_account",
+    ...<8 lines>...
+        "client_x509_cert_url": os.getenv("FIREBASE_CLIENT_CERT_URL")
+    })
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\firebase_admin\credentials.py", line 113, in __init__
+    raise ValueError('Failed to initialize a certificate credential. '
+                     'Caused by: "{0}"'.format(error))
+ValueError: Failed to initialize a certificate credential. Caused by: "None could not be converted to bytes"
+2025-06-10 21:19:07,176 - ERROR - Ошибка в главной функции: Failed to initialize a certificate credential. Caused by: "None could not be converted to bytes"
+Traceback (most recent call last):
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\firebase_admin\credentials.py", line 110, in __init__
+    self._g_credential = service_account.Credentials.from_service_account_info(
+                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        json_data, scopes=_scopes)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\oauth2\service_account.py", line 243, in from_service_account_info
+    signer = _service_account_info.from_dict(
+        info, require=["client_email", "token_uri"]
+    )
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\auth\_service_account_info.py", line 57, in from_dict
+    signer = crypt.RSASigner.from_service_account_info(data)
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\auth\crypt\base.py", line 109, in from_service_account_info
+    return cls.from_string(
+           ~~~~~~~~~~~~~~~^
+        info[_JSON_FILE_PRIVATE_KEY], info.get(_JSON_FILE_PRIVATE_KEY_ID)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\auth\crypt\_cryptography_rsa.py", line 132, in from_string
+    key = _helpers.to_bytes(key)
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\auth\_helpers.py", line 157, in to_bytes
+    raise exceptions.InvalidValue(
+        "{0!r} could not be converted to bytes".format(value)
+    )
+google.auth.exceptions.InvalidValue: None could not be converted to bytes
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\data_uploader.py", line 195, in main
+    uploader = FirebaseUploader()
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\data_uploader.py", line 28, in __init__
+    self.db = self.initialize_firebase()
+              ~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\data_uploader.py", line 42, in initialize_firebase
+    cred = credentials.Certificate({
+        "type": "service_account",
+    ...<8 lines>...
+        "client_x509_cert_url": os.getenv("FIREBASE_CLIENT_CERT_URL")
+    })
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\firebase_admin\credentials.py", line 113, in __init__
+    raise ValueError('Failed to initialize a certificate credential. '
+                     'Caused by: "{0}"'.format(error))
+ValueError: Failed to initialize a certificate credential. Caused by: "None could not be converted to bytes"
+2025-06-10 21:30:00,019 - INFO - Чтение данных из файла: data\generated_data.json
+2025-06-10 21:30:00,049 - ERROR - Ошибка при инициализации Firebase: Expecting value: line 1 column 1 (char 0)
+Traceback (most recent call last):
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\data_uploader.py", line 46, in initialize_firebase
+    cred_data = json.load(f)
+  File "C:\Python313\Lib\json\__init__.py", line 293, in load
+    return loads(fp.read(),
+        cls=cls, object_hook=object_hook,
+        parse_float=parse_float, parse_int=parse_int,
+        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
+  File "C:\Python313\Lib\json\__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "C:\Python313\Lib\json\decoder.py", line 345, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python313\Lib\json\decoder.py", line 363, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+2025-06-10 21:30:00,052 - ERROR - Ошибка при разборе JSON: Expecting value: line 1 column 1 (char 0)
+2025-06-10 21:35:15,368 - INFO - Чтение данных из файла: data\generated_data.json
+2025-06-10 21:35:15,421 - INFO - Firebase Admin SDK успешно инициализирован
+2025-06-10 21:35:15,421 - INFO - Начало загрузки данных в Firestore
+2025-06-10 21:35:15,421 - INFO - Удаление коллекции: employees
+2025-06-10 21:35:17,792 - INFO - Удалено 400 документов из employees
+2025-06-10 21:35:17,793 - INFO - Всего удалено 400 документов из employees
+2025-06-10 21:35:17,793 - INFO - Удаление коллекции: devices
+2025-06-10 21:35:19,383 - INFO - Удалено 400 документов из devices
+2025-06-10 21:35:19,383 - INFO - Всего удалено 400 документов из devices
+2025-06-10 21:35:19,383 - INFO - Удаление коллекции: referenceData
+2025-06-10 21:35:19,655 - INFO - Всего удалено 0 документов из referenceData
+2025-06-10 21:35:19,655 - INFO - Загрузка эталонных данных...
+2025-06-10 21:35:19,657 - INFO - Загружено 15 городов, 7 подразделений, 8 должностей
+2025-06-10 21:35:19,658 - INFO - Загрузка 1000 сотрудников...
+2025-06-10 21:35:21,541 - INFO - Выполнена пакетная запись 400 операций
+2025-06-10 21:35:23,275 - INFO - Выполнена пакетная запись 400 операций
+2025-06-10 21:35:24,380 - INFO - Выполнена пакетная запись 203 операций
+2025-06-10 21:35:24,381 - INFO - Загружено 1000 сотрудников
+2025-06-10 21:35:24,382 - INFO - Загрузка 7000 устройств...
+2025-06-10 21:35:26,350 - INFO - Выполнена пакетная запись 400 операций
+2025-06-10 21:35:28,232 - INFO - Выполнена пакетная запись 400 операций
+2025-06-10 21:35:29,958 - INFO - Выполнена пакетная запись 400 операций
+2025-06-10 21:35:31,896 - INFO - Выполнена пакетная запись 400 операций
+2025-06-10 21:35:33,812 - INFO - Выполнена пакетная запись 400 операций
+2025-06-10 21:35:35,695 - INFO - Выполнена пакетная запись 400 операций
+2025-06-10 21:35:37,874 - INFO - Выполнена пакетная запись 400 операций
+2025-06-10 21:35:39,965 - INFO - Выполнена пакетная запись 400 операций
+2025-06-10 21:35:41,891 - INFO - Выполнена пакетная запись 400 операций
+2025-06-10 21:35:43,923 - INFO - Выполнена пакетная запись 400 операций
+2025-06-10 21:35:46,059 - INFO - Выполнена пакетная запись 400 операций
+2025-06-10 21:35:48,235 - INFO - Выполнена пакетная запись 400 операций
+2025-06-10 21:35:50,237 - INFO - Выполнена пакетная запись 400 операций
+2025-06-10 21:35:52,210 - INFO - Выполнена пакетная запись 400 операций
+2025-06-10 21:35:54,103 - INFO - Выполнена пакетная запись 400 операций
+2025-06-10 21:35:55,768 - INFO - Выполнена пакетная запись 400 операций
+2025-06-10 21:35:57,428 - INFO - Выполнена пакетная запись 400 операций
+2025-06-10 21:35:58,327 - INFO - Выполнена пакетная запись 200 операций
+2025-06-10 21:35:58,327 - INFO - Загружено 7000 устройств
+2025-06-10 21:35:58,327 - INFO - Загрузка данных завершена за 42.91 секунд
+2025-06-10 21:35:58,327 - INFO - Всего выполнено 8003 операций записи
+2025-06-10 21:35:58,328 - INFO - Все операции успешно завершены
+2025-06-10 21:41:25,899 - INFO - Чтение данных из файла: data\generated_data.json
+2025-06-10 21:41:25,951 - INFO - Firebase Admin SDK успешно инициализирован
+2025-06-10 21:41:25,952 - INFO - Начало загрузки данных в Firestore
+2025-06-10 21:41:25,952 - INFO - Начало удаления коллекций: employees, devices, referenceData
+2025-06-10 21:41:25,952 - INFO - Начало удаления коллекции: employees
+2025-06-10 21:41:28,090 - INFO - Удалено 400 документов из employees
+2025-06-10 21:41:30,362 - INFO - Удалено 800 документов из employees
+2025-06-10 21:41:32,629 - INFO - Удалено 1200 документов из employees
+2025-06-10 21:41:34,928 - INFO - Успешно удалено 1599 документов из employees
+2025-06-10 21:41:34,928 - INFO - Удалено 1599 документов из коллекции employees
+2025-06-10 21:41:34,929 - INFO - Начало удаления коллекции: devices
+2025-06-10 21:41:36,785 - INFO - Удалено 400 документов из devices
+2025-06-10 21:41:39,143 - INFO - Удалено 800 документов из devices
+2025-06-10 21:41:41,469 - INFO - Удалено 1200 документов из devices
+2025-06-10 21:41:43,804 - INFO - Удалено 1600 документов из devices
+2025-06-10 21:41:46,178 - INFO - Удалено 2000 документов из devices
+2025-06-10 21:41:48,717 - INFO - Удалено 2400 документов из devices
+2025-06-10 21:41:51,146 - INFO - Удалено 2800 документов из devices
+2025-06-10 21:41:53,561 - INFO - Удалено 3200 документов из devices
+2025-06-10 21:41:55,928 - INFO - Удалено 3600 документов из devices
+2025-06-10 21:41:58,330 - INFO - Удалено 4000 документов из devices
+2025-06-10 21:42:00,657 - INFO - Удалено 4400 документов из devices
+2025-06-10 21:42:03,045 - INFO - Удалено 4800 документов из devices
+2025-06-10 21:42:05,307 - INFO - Удалено 5200 документов из devices
+2025-06-10 21:42:07,615 - INFO - Удалено 5600 документов из devices
+2025-06-10 21:42:09,984 - INFO - Удалено 6000 документов из devices
+2025-06-10 21:42:12,334 - INFO - Удалено 6400 документов из devices
+2025-06-10 21:42:14,737 - INFO - Удалено 6800 документов из devices
+2025-06-10 21:42:16,838 - INFO - Удалено 7200 документов из devices
+2025-06-10 21:42:18,930 - INFO - Удалено 7600 документов из devices
+2025-06-10 21:42:21,176 - INFO - Удалено 8000 документов из devices
+2025-06-10 21:42:23,308 - INFO - Удалено 8400 документов из devices
+2025-06-10 21:42:25,444 - INFO - Удалено 8800 документов из devices
+2025-06-10 21:42:27,528 - INFO - Удалено 9200 документов из devices
+2025-06-10 21:42:29,733 - INFO - Удалено 9600 документов из devices
+2025-06-10 21:42:31,947 - INFO - Удалено 10000 документов из devices
+2025-06-10 21:42:34,431 - INFO - Удалено 10400 документов из devices
+2025-06-10 21:42:35,943 - INFO - Успешно удалено 10403 документов из devices
+2025-06-10 21:42:35,943 - INFO - Удалено 10403 документов из коллекции devices
+2025-06-10 21:42:35,944 - INFO - Начало удаления коллекции: referenceData
+2025-06-10 21:42:37,493 - INFO - Успешно удалено 3 документов из referenceData
+2025-06-10 21:42:37,494 - INFO - Удалено 3 документов из коллекции referenceData
+2025-06-10 21:42:37,494 - INFO - Загрузка эталонных данных...
+2025-06-10 21:42:37,495 - INFO - Загружено 15 городов, 7 подразделений, 8 должностей
+2025-06-10 21:42:37,495 - INFO - Загрузка 1000 сотрудников...
+2025-06-10 21:42:39,208 - INFO - Выполнена пакетная запись 400 операций
+2025-06-10 21:42:40,927 - INFO - Выполнена пакетная запись 400 операций
+2025-06-10 21:42:41,750 - INFO - Выполнена пакетная запись 203 операций
+2025-06-10 21:42:41,751 - INFO - Загружено 1000 сотрудников
+2025-06-10 21:42:41,751 - INFO - Загрузка 7000 устройств...
+2025-06-10 21:42:43,432 - INFO - Выполнена пакетная запись 400 операций
+2025-06-10 21:42:46,078 - INFO - Выполнена пакетная запись 400 операций
+2025-06-10 21:42:47,784 - INFO - Выполнена пакетная запись 400 операций
+2025-06-10 21:42:49,566 - INFO - Выполнена пакетная запись 400 операций
+2025-06-10 21:42:51,207 - INFO - Выполнена пакетная запись 400 операций
+2025-06-10 21:42:52,872 - INFO - Выполнена пакетная запись 400 операций
+2025-06-10 21:42:54,692 - INFO - Выполнена пакетная запись 400 операций
+2025-06-10 21:43:46,598 - ERROR - Ошибка при выполнении пакетной записи: Timeout of 60.0s exceeded, last exception: 429 Quota exceeded.
+Traceback (most recent call last):
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\api_core\grpc_helpers.py", line 76, in error_remapped_callable
+    return callable_(*args, **kwargs)
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\grpc\_interceptor.py", line 277, in __call__
+    response, ignored_call = self._with_call(
+                             ~~~~~~~~~~~~~~~^
+        request,
+        ^^^^^^^^
+    ...<4 lines>...
+        compression=compression,
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\grpc\_interceptor.py", line 332, in _with_call
+    return call.result(), call
+           ~~~~~~~~~~~^^
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\grpc\_channel.py", line 440, in result
+    raise self
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\grpc\_interceptor.py", line 315, in continuation
+    response, call = self._thunk(new_method).with_call(
+                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        request,
+        ^^^^^^^^
+    ...<4 lines>...
+        compression=new_compression,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\grpc\_channel.py", line 1198, in with_call
+    return _end_unary_response_blocking(state, call, True, None)
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\grpc\_channel.py", line 1006, in _end_unary_response_blocking
+    raise _InactiveRpcError(state)  # pytype: disable=not-instantiable
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+grpc._channel._InactiveRpcError: <_InactiveRpcError of RPC that terminated with:
+	status = StatusCode.RESOURCE_EXHAUSTED
+	details = "Quota exceeded."
+	debug_error_string = "UNKNOWN:Error received from peer ipv4:142.250.74.138:443 {grpc_status:8, grpc_message:"Quota exceeded."}"
+>
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\api_core\retry\retry_unary.py", line 147, in retry_target
+    result = target()
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\api_core\timeout.py", line 130, in func_with_timeout
+    return func(*args, **kwargs)
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\api_core\grpc_helpers.py", line 78, in error_remapped_callable
+    raise exceptions.from_grpc_error(exc) from exc
+google.api_core.exceptions.ResourceExhausted: 429 Quota exceeded.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\data_uploader.py", line 158, in commit_batch
+    self.batch.commit()
+    ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\cloud\firestore_v1\batch.py", line 61, in commit
+    commit_response = self._client._firestore_api.commit(
+        request=request,
+        metadata=self._client._rpc_metadata,
+        **kwargs,
+    )
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\cloud\firestore_v1\services\firestore\client.py", line 1431, in commit
+    response = rpc(
+        request,
+    ...<2 lines>...
+        metadata=metadata,
+    )
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\api_core\gapic_v1\method.py", line 131, in __call__
+    return wrapped_func(*args, **kwargs)
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\api_core\retry\retry_unary.py", line 294, in retry_wrapped_func
+    return retry_target(
+        target,
+    ...<3 lines>...
+        on_error=on_error,
+    )
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\api_core\retry\retry_unary.py", line 156, in retry_target
+    next_sleep = _retry_error_helper(
+        exc,
+    ...<6 lines>...
+        timeout,
+    )
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\api_core\retry\retry_base.py", line 229, in _retry_error_helper
+    raise final_exc from source_exc
+google.api_core.exceptions.RetryError: Timeout of 60.0s exceeded, last exception: 429 Quota exceeded.
+2025-06-10 21:43:46,616 - ERROR - Критическая ошибка при загрузке данных: Timeout of 60.0s exceeded, last exception: 429 Quota exceeded.
+Traceback (most recent call last):
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\api_core\grpc_helpers.py", line 76, in error_remapped_callable
+    return callable_(*args, **kwargs)
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\grpc\_interceptor.py", line 277, in __call__
+    response, ignored_call = self._with_call(
+                             ~~~~~~~~~~~~~~~^
+        request,
+        ^^^^^^^^
+    ...<4 lines>...
+        compression=compression,
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\grpc\_interceptor.py", line 332, in _with_call
+    return call.result(), call
+           ~~~~~~~~~~~^^
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\grpc\_channel.py", line 440, in result
+    raise self
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\grpc\_interceptor.py", line 315, in continuation
+    response, call = self._thunk(new_method).with_call(
+                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        request,
+        ^^^^^^^^
+    ...<4 lines>...
+        compression=new_compression,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\grpc\_channel.py", line 1198, in with_call
+    return _end_unary_response_blocking(state, call, True, None)
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\grpc\_channel.py", line 1006, in _end_unary_response_blocking
+    raise _InactiveRpcError(state)  # pytype: disable=not-instantiable
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+grpc._channel._InactiveRpcError: <_InactiveRpcError of RPC that terminated with:
+	status = StatusCode.RESOURCE_EXHAUSTED
+	details = "Quota exceeded."
+	debug_error_string = "UNKNOWN:Error received from peer ipv4:142.250.74.138:443 {grpc_status:8, grpc_message:"Quota exceeded."}"
+>
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\api_core\retry\retry_unary.py", line 147, in retry_target
+    result = target()
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\api_core\timeout.py", line 130, in func_with_timeout
+    return func(*args, **kwargs)
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\api_core\grpc_helpers.py", line 78, in error_remapped_callable
+    raise exceptions.from_grpc_error(exc) from exc
+google.api_core.exceptions.ResourceExhausted: 429 Quota exceeded.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\data_uploader.py", line 224, in upload_data
+    self.add_to_batch('devices', device_id, device_data)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\data_uploader.py", line 152, in add_to_batch
+    self.commit_batch()
+    ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\data_uploader.py", line 158, in commit_batch
+    self.batch.commit()
+    ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\cloud\firestore_v1\batch.py", line 61, in commit
+    commit_response = self._client._firestore_api.commit(
+        request=request,
+        metadata=self._client._rpc_metadata,
+        **kwargs,
+    )
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\cloud\firestore_v1\services\firestore\client.py", line 1431, in commit
+    response = rpc(
+        request,
+    ...<2 lines>...
+        metadata=metadata,
+    )
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\api_core\gapic_v1\method.py", line 131, in __call__
+    return wrapped_func(*args, **kwargs)
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\api_core\retry\retry_unary.py", line 294, in retry_wrapped_func
+    return retry_target(
+        target,
+    ...<3 lines>...
+        on_error=on_error,
+    )
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\api_core\retry\retry_unary.py", line 156, in retry_target
+    next_sleep = _retry_error_helper(
+        exc,
+    ...<6 lines>...
+        timeout,
+    )
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\api_core\retry\retry_base.py", line 229, in _retry_error_helper
+    raise final_exc from source_exc
+google.api_core.exceptions.RetryError: Timeout of 60.0s exceeded, last exception: 429 Quota exceeded.
+2025-06-10 21:43:46,619 - ERROR - Ошибка в главной функции: Timeout of 60.0s exceeded, last exception: 429 Quota exceeded.
+Traceback (most recent call last):
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\api_core\grpc_helpers.py", line 76, in error_remapped_callable
+    return callable_(*args, **kwargs)
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\grpc\_interceptor.py", line 277, in __call__
+    response, ignored_call = self._with_call(
+                             ~~~~~~~~~~~~~~~^
+        request,
+        ^^^^^^^^
+    ...<4 lines>...
+        compression=compression,
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\grpc\_interceptor.py", line 332, in _with_call
+    return call.result(), call
+           ~~~~~~~~~~~^^
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\grpc\_channel.py", line 440, in result
+    raise self
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\grpc\_interceptor.py", line 315, in continuation
+    response, call = self._thunk(new_method).with_call(
+                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        request,
+        ^^^^^^^^
+    ...<4 lines>...
+        compression=new_compression,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\grpc\_channel.py", line 1198, in with_call
+    return _end_unary_response_blocking(state, call, True, None)
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\grpc\_channel.py", line 1006, in _end_unary_response_blocking
+    raise _InactiveRpcError(state)  # pytype: disable=not-instantiable
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+grpc._channel._InactiveRpcError: <_InactiveRpcError of RPC that terminated with:
+	status = StatusCode.RESOURCE_EXHAUSTED
+	details = "Quota exceeded."
+	debug_error_string = "UNKNOWN:Error received from peer ipv4:142.250.74.138:443 {grpc_status:8, grpc_message:"Quota exceeded."}"
+>
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\api_core\retry\retry_unary.py", line 147, in retry_target
+    result = target()
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\api_core\timeout.py", line 130, in func_with_timeout
+    return func(*args, **kwargs)
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\api_core\grpc_helpers.py", line 78, in error_remapped_callable
+    raise exceptions.from_grpc_error(exc) from exc
+google.api_core.exceptions.ResourceExhausted: 429 Quota exceeded.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\data_uploader.py", line 253, in main
+    await uploader.upload_data(data)
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\data_uploader.py", line 224, in upload_data
+    self.add_to_batch('devices', device_id, device_data)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\data_uploader.py", line 152, in add_to_batch
+    self.commit_batch()
+    ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\data_uploader.py", line 158, in commit_batch
+    self.batch.commit()
+    ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\cloud\firestore_v1\batch.py", line 61, in commit
+    commit_response = self._client._firestore_api.commit(
+        request=request,
+        metadata=self._client._rpc_metadata,
+        **kwargs,
+    )
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\cloud\firestore_v1\services\firestore\client.py", line 1431, in commit
+    response = rpc(
+        request,
+    ...<2 lines>...
+        metadata=metadata,
+    )
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\api_core\gapic_v1\method.py", line 131, in __call__
+    return wrapped_func(*args, **kwargs)
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\api_core\retry\retry_unary.py", line 294, in retry_wrapped_func
+    return retry_target(
+        target,
+    ...<3 lines>...
+        on_error=on_error,
+    )
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\api_core\retry\retry_unary.py", line 156, in retry_target
+    next_sleep = _retry_error_helper(
+        exc,
+    ...<6 lines>...
+        timeout,
+    )
+  File "C:\Users\alexm.ALEXHOST\PycharmProjects\MyDevices\venv\Lib\site-packages\google\api_core\retry\retry_base.py", line 229, in _retry_error_helper
+    raise final_exc from source_exc
+google.api_core.exceptions.RetryError: Timeout of 60.0s exceeded, last exception: 429 Quota exceeded.
+2025-06-10 21:45:24,594 - INFO - Чтение данных из файла: data\generated_data.json
+2025-06-10 21:45:24,648 - INFO - Firebase Admin SDK успешно инициализирован
+2025-06-10 21:45:24,648 - INFO - Начало загрузки данных в Firestore
+2025-06-10 21:45:24,648 - INFO - Начало удаления коллекций: employees, devices, referenceData
+2025-06-10 21:45:24,648 - INFO - Начало удаления коллекции: employees
+2025-06-10 21:45:26,820 - INFO - Удалено 400 документов из employees
+2025-06-10 21:45:29,071 - INFO - Удалено 800 документов из employees
+2025-06-10 21:45:30,799 - INFO - Успешно удалено 1000 документов из employees
+2025-06-10 21:45:30,801 - INFO - Удалено 1000 документов из коллекции employees
+2025-06-10 21:45:30,802 - INFO - Начало удаления коллекции: devices
+2025-06-10 21:45:32,643 - INFO - Удалено 400 документов из devices
+2025-06-10 21:45:35,057 - INFO - Удалено 800 документов из devices

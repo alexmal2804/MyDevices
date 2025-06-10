@@ -1,0 +1,8 @@
+{
+  "generated_at": "2025-06-10T21:14:02.032988",
+  "execution_time_seconds": 0.21,
+  "status": "completed",
+  "output_file": "data/generated_data.json",
+  "employees_count": 1000,
+  "devices_count": 7000
+}
